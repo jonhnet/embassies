@@ -1,0 +1,4 @@
+These are unit tests that compile to and run under a POSIX environment.
+(Contrast with paltest, which builds in a separate directory because
+it targets zoog ABI, and hence the binaries share a different set of
+makefile options.)

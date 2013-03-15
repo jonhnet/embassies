@@ -1,0 +1,61 @@
+--- patched/sha2_helper.c.inc	2012-08-10 11:17:21.660067722 -0700
++++ ../crypto/sha2_helper.c.inc	2012-04-03 13:22:01.161066555 -0700
+@@ -76,6 +76,8 @@
+  * @author   Thomas Pornin <thomas.pornin@cryptolog.com>
+  */
+ 
++#include "LiteLib.h"
++
+ #ifdef _MSC_VER
+ #pragma warning (disable: 4146)
+ #endif
+@@ -146,7 +148,7 @@
+ 		clen = SPH_BLEN - current;
+ 		if (clen > len)
+ 			clen = len;
+-		memcpy(sc->buf + current, data, clen);
++		lite_memcpy(sc->buf + current, data, clen);
+ 		data = (const unsigned char *)data + clen;
+ 		current += clen;
+ 		len -= clen;
+@@ -208,7 +210,7 @@
+ 		data = (const unsigned char *)data + SPH_BLEN;
+ 	}
+ 	if (len > 0)
+-		memcpy(sc->buf, data, len);
++		lite_memcpy(sc->buf, data, len);
+ #if SPH_64
+ 	sc->count += (sph_u64)orig_len;
+ #else
+@@ -262,18 +264,18 @@
+ 	}
+ #endif
+ 	if (current > SPH_MAXPAD) {
+-		memset(sc->buf + current, 0, SPH_BLEN - current);
++		lite_memset(sc->buf + current, 0, SPH_BLEN - current);
+ 		RFUN(sc->buf, SPH_VAL);
+-		memset(sc->buf, 0, SPH_MAXPAD);
++		lite_memset(sc->buf, 0, SPH_MAXPAD);
+ 	} else {
+-		memset(sc->buf + current, 0, SPH_MAXPAD - current);
++		lite_memset(sc->buf + current, 0, SPH_MAXPAD - current);
+ 	}
+ #if defined BE64
+ #if defined PLW1
+ 	sph_enc64be_aligned(sc->buf + SPH_MAXPAD,
+ 		SPH_T64(sc->count << 3) + (sph_u64)n);
+ #elif defined PLW4
+-	memset(sc->buf + SPH_MAXPAD, 0, 2 * SPH_WLEN);
++	lite_memset(sc->buf + SPH_MAXPAD, 0, 2 * SPH_WLEN);
+ 	sph_enc64be_aligned(sc->buf + SPH_MAXPAD + 2 * SPH_WLEN,
+ 		sc->count >> 61);
+ 	sph_enc64be_aligned(sc->buf + SPH_MAXPAD + 3 * SPH_WLEN,
+@@ -291,7 +293,7 @@
+ 	sph_enc64le_aligned(sc->buf + SPH_MAXPAD,
+ 		SPH_T64(sc->count << 3) + (sph_u64)n);
+ 	sph_enc64le_aligned(sc->buf + SPH_MAXPAD + SPH_WLEN, sc->count >> 61);
+-	memset(sc->buf + SPH_MAXPAD + 2 * SPH_WLEN, 0, 2 * SPH_WLEN);
++	lite_memset(sc->buf + SPH_MAXPAD + 2 * SPH_WLEN, 0, 2 * SPH_WLEN);
+ #else
+ 	sph_enc64le_aligned(sc->buf + SPH_MAXPAD,
+ 		SPH_T64(sc->count << 3) + (sph_u64)n);

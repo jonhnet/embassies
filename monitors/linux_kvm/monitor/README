@@ -1,0 +1,14 @@
+This is the half of the host implementation that's security-sensitive.
+This implementation enforces containment by relying on the
+linux kvm facility, which exposes hardware processor virtualization.
+
+The monitor uses two types of processes:
+	- the coordinator provides
+		the local network router,
+		a connection to the tun network, and
+		the faciilty to launch new applications.
+	- each zoog address space (app) is hosted by one monitor process.
+	  On 32-bit hosts, this is particularly necessary, since the monitor
+	  maps all of the guests' memory into its own address space.
+	  Hosting multiple large apps would quickly exhaust the monitor's
+	  address space.

@@ -1,0 +1,140 @@
+##########  Various modules to choose from #############
+
+#BOOTBLOCKS_MODULE=$(ZOOG_ROOT)/toolchains/linux_elf/bootblocks/
+#COMMON_UTILS_MODULE=$(ZOOG_ROOT)/common/utils
+#ELF_COMMON_MODULE=$(ZOOG_ROOT)/toolchains/linux_elf/common/
+#ELFOBJ_MODULE=$(ZOOG_ROOT)/toolchains/linux_elf/elfobj/
+#ZFTP_MODULE=$(ZOOG_ROOT)/common/zftp_module/
+
+#BOOTBLOCKS_OBJS=\
+#	elf_start_$(ARCH).o \
+#	relocate_this.o \
+#	dummy_main.o \
+#
+#COMMON_UTILS_OBJS=\
+#	cheesy_thread.o \
+#	concrete_mmap_xdt.o \
+#	cheesymalloc.o \
+#	LiteLib.o \
+#	cheesylock.o \
+#	lite_log2.o \
+#	cheesy_malloc_factory.o \
+#	xax_util.o \
+#	simple_network.o \
+#	xax_network_utils.o \
+#	hash_table.o \
+#	cheesy_snprintf.o \
+#	format_ip.o \
+#	linked_list.o \
+#	malloc_factory.o \
+#	ambient_malloc.o \
+#	malloc_factory_operator_new.o \
+
+CRYPTO_MODULE=\
+	$(ZOOG_ROOT)/common/crypto \
+	$(ZOOG_ROOT)/common/crypto-patched/patched \
+
+CRYPTO_MODULE_OBJS=\
+  bignum.o \
+  rijndael.o \
+  rsa.o \
+  sha1.o \
+  sha2big.o \
+  sha2small.o \
+  vmac.o \
+  \
+  ByteStream.o \
+  CryptoException.o \
+  DomainName.o \
+  RandomSupply.o \
+  ZBinaryRecord.o \
+  ZCert.o \
+  ZCertChain.o \
+  ZDelegationRecord.o \
+  ZKey.o \
+  ZKeyLinkRecord.o \
+  ZKeyPair.o \
+  ZPrivKey.o \
+  ZPubKey.o \
+  ZPubKeyRecord.o \
+  ZRecord.o \
+  ZSigRecord.o \
+  crypto.o \
+	ZSymKey.o \
+	PrfKey.o \
+	MacKey.o \
+	SymEncKey.o \
+	KeyDerivationKey.o \
+
+
+#ELF_COMMON_OBJS=\
+#	pure_virtual.o \
+#	string_compat.o \
+#	xax_skinny_network.o \
+#	ZClock.o \
+#	LegacyZClock.o \
+#	zutex_sync.o \
+#	packetfilter.o \
+#	SyncFactory_Zutex.o \
+#	SyncFactory_TimedZutex.o \
+#	ThreadFactory_Cheesy.o \
+#	XStreamXdt.o \
+#	ZeroCopyBuf_Xnb.o \
+#	ZeroCopyView.o \
+#	FragmentReassembly.o \
+#	XSNReceiveAccounting.o \
+#	ZStats.o \
+#	perf_measure.o \
+#
+## elfobj stuff needed by relocate_this
+#ELFOBJ_MODULE_OBJS=\
+#	elfobj.o \
+#	elf_flat_reader.o \
+
+KEYVAL_MODULE=$(ZOOG_ROOT)/common/keyval_module/
+KEYVAL_MODULE_OBJS=\
+  KeyValClient.o \
+  EncryptedKeyValClient.o \
+
+#ZFTP_OBJS=\
+#	ZCache.o \
+#	ZOrigin.o \
+#	malloc_factory_operator_new.o \
+#	ZLookupClient.o \
+#	ZLookupRequest.o \
+#	ZSyntheticFileRequest.o \
+#	ZFileRequest.o \
+#	ZCachedFile.o \
+#	ValidatedMerkleRecord.o \
+#	ZLCArgs.o \
+#	ZBlockCache.o \
+#	ZBlockCacheRecord.o \
+#	ZNameRecord.o \
+#	pure_virtual.o \
+#	zlc_util.o \
+#	FreshnessSeal.o \
+#	SocketFactory_Skinny.o \
+#	SocketFactory.o \
+#	tree_math.o \
+#	ZFileReplyFromServer.o \
+#	ZFileClient.o \
+#	ZCachedName.o \
+#	ErrorFileResult.o \
+#	InternalFileResult.o \
+#	ValidFileResult.o \
+#	ZFileServer.o \
+#	ZLookupServer.o \
+#	ZLCEmitXdt.o \
+#	ZWireFileRequest.o \
+#	ZLCTestHarness.o \
+#	ZFetch.o \
+#	reference_file.o \
+#	ZFastFetch.o \
+#	SendBufferFactory_Xnb.o \
+#	DataRange.o \
+#	OutboundRequest.o \
+#	RequestBuilder.o \
+
+MONITOR_CRYPTO_MODULE=$(ZOOG_ROOT)/monitors/linux_common/crypto/
+MONITOR_CRYPTO_MODULE_OBJS=\
+	MonitorCrypto.o

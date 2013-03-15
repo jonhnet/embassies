@@ -1,0 +1,20 @@
+--- orig/sha2-orig/sphlib-3.0/c/sha1.c	2011-07-20 18:11:04.000000000 -0700
++++ ../crypto/sha1.c	2012-09-15 22:16:57.000000000 -0700
+@@ -33,7 +33,7 @@
+ #include <stddef.h>
+ #include <string.h>
+ 
+-#include "sph_sha1.h"
++#include "sha1.h"
+ 
+ #define F(B, C, D)     ((((C) ^ (D)) & (B)) ^ (D))
+ #define G(B, C, D)     ((B) ^ (C) ^ (D))
+@@ -350,7 +350,7 @@
+ #define RFUN   sha1_round
+ #define HASH   sha1
+ #define BE32   1
+-#include "md_helper.c"
++#include "sha2_helper.c.inc"
+ 
+ /* see sph_sha1.h */
+ void

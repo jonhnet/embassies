@@ -1,0 +1,31 @@
+--- orig/rijndael-alg-fst.c	2012-09-20 14:29:53.000000000 -0700
++++ ../crypto/rijndael.c	2012-09-15 22:16:57.000000000 -0700
+@@ -25,8 +25,9 @@
+  */
+ #include <assert.h>
+ #include <stdlib.h>
++#include <string.h>
+ 
+-#include "rijndael-alg-fst.h"
++#include "rijndael.h"
+ 
+ /*
+ Te0[x] = S [x].[02, 01, 01, 03];
+@@ -851,7 +852,7 @@
+ 	return Nr;
+ }
+ 
+-void rijndaelEncrypt(const u32 rk[/*4*(Nr + 1)*/], int Nr, const u8 pt[16], u8 ct[16]) {
++void rijndaelBlockEncrypt(const u32 rk[/*4*(Nr + 1)*/], int Nr, const u8 pt[16], u8 ct[16]) {
+ 	u32 s0, s1, s2, s3, t0, t1, t2, t3;
+ #ifndef FULL_UNROLL
+     int r;
+@@ -1032,7 +1033,7 @@
+ 	PUTU32(ct + 12, s3);
+ }
+ 
+-void rijndaelDecrypt(const u32 rk[/*4*(Nr + 1)*/], int Nr, const u8 ct[16], u8 pt[16]) {
++void rijndaelBlockDecrypt(const u32 rk[/*4*(Nr + 1)*/], int Nr, const u8 ct[16], u8 pt[16]) {
+ 	u32 s0, s1, s2, s3, t0, t1, t2, t3;
+ #ifndef FULL_UNROLL
+     int r;

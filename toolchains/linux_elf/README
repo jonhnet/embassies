@@ -1,0 +1,73 @@
+linux_elf directory layout
+
+Things can get a little confusing in here. There are many kinds of directories,
+distinguished by the type of objects they build.
+
+MODULEs.  First, as with elsewhere in the zoog/ tree, a directory
+can be a 'MODULE', meant for *source-level* inclusion into other
+directories. MODULE dirs must *not* contain a makefile, and hence they
+do not create a build/ dir.
+	bootblocks/
+	common/
+	elf_obj/
+
+Components. These directories build objects (or libraries)
+that require some weird makefile configuration. Other directories
+snarf the objects in via their own makefiles.
+	libc/           -- feeds into elf_loader
+	libgcc_parts/   -- feeds into various raw binaries
+	lwip_lib/		-- feeds into zguest
+
+Linux apps. Posix directories build native Posix apps meant to be run
+on Linux.  Examples include programs that are part of the build process
+for other directories:
+	elf_flatten
+	make_bss_real
+	static_rewriter
+	scripts/find_zoog_note
+	zftp_create_zarfile
+Other examples include programs that are meant to run on a vendor's "server":
+	crypto/crypto_util
+	zftp_backend
+
+Zoog raw binaries.  Raw binaries are programs that meet the minimal
+zoog boot block specification: you run them (x86) by putting the ZDT
+into $ebx, then jumping to their first byte. Every zoog raw binary is
+packaged together with its cert into a .signed file. The raw environment
+is pretty gnarly -- it requires avoiding some C standard library
+infrastructure (thread local store, inherent to lots of std lib code,
+C++ exceptions...). Examples include:
+	paltest/
+	zftp_zoog/
+	elf_loader/
+
+ELF pies. The purpose of the elf_loader raw binary is to bootstrap the
+ELF dynamic loader, to be able to run ELF binaries that come out of the
+back end of a mostly-ordinary compiler. Apps built this way have access to
+essentially all POSIX libraries, including pthreads and C++ exceptions,
+as well as the simulated Posix services provided by the elf_loader that
+launched them.  The only constraint is that executables must be linked with
+the '-pie' (position-independent) flag. (That imposes no significant
+constraint on the programming environment.)
+	zoog_tests/
+	zguest/
+
+Zguest Apps. The purpose of the zguest elf pie is to bootstrap this class
+of apps. These apps are also -pies, but they depend on additional services
+provided by zguest: a TCP/IP stack (LWIP), and the ability to integrate
+additional executables into the process address space, notably:
+	xvnc (for a graphical framebuffer; our version is hooked to
+		display using Zoog's framebuffer calls),
+	dbus (probably not strictly necessary, but easier to fold in than to
+		extricate from the apps expecting it), and
+	twm (a window manager to make palette-happy gimp kinda accessible).
+Examples include:
+	apps/midori
+	apps/abiword
+	apps/gimp
+	apps/gnucash
+	apps/gnumeric
+	apps/inkscape
+	apps/marble
+	hello -- an example of a zguest app that uses only the LWIP context;
+	   no xvnc or dbus.

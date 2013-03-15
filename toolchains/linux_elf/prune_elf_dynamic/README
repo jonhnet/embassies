@@ -1,0 +1,18 @@
+This tool is used as the last step in compiling a -pie executable for
+use inside a zoog process.
+The tool rewrites the .dynamic section of Elf files for two purposes:
+
+(1) Used to remove INIT & FINI entries. When the loader is invoked explicitly
+(with the executable name as an argument, rather than invoked as an
+'interpreter'), and fed a PIE executable, a bug in the dynamic linker
+calls INIT & FINI twice. They're not always idempotent, leading some
+apps to explode. Cutting these INIT & FINI entries out works just fine,
+since dl still calls them once (since it's launching an executable).
+
+(2) Used to neuter RPATH entries, so I can get apps to use my LD_LIBRARY_PATH,
+not their compiled-in RPATH. This probably isn't all that critical -- when
+things are working correctly, it's fine for the app to be looking at the
+"installed" version of any libraries. But while I'm debugging, it's a
+practical convenience to have the zoog app pull its libraries from the
+zoog build dir, ignoring the legitimate install of the app in the
+host's file system.

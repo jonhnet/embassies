@@ -1,0 +1,37 @@
+How elf_loader bootstraps from a bare Zoog environment to running
+ELF dynamically-linked binaries.
+------------------------------------------------------------------------
+
+elf_loader builds a program out of the ELF-toolchain components,
+links them together,
+and slightly mangles them
+to make a Zoog-shaped binary.
+
+The final binary, as a Zoog executable, starts on its first byte.
+That first preamble is machine code emitted by elf_flatten's
+--install-entry-jump mode.
+It uses the PAL's ZDT to allocate a stack,
+pushes relocation information on the stack (available to elf_flatten
+because the ELF is already baked),
+pushes on the address of the elf itself, and jumps to the ELF's entry point.
+
+The ELF's entry point is bootblocks/ _elfstart, which pushes the PAL's
+zdt jump table parameter onto the stack (so it looks like a C parameter),
+and calls into C in elfmain (elf_loader.c).
+
+elfmain performs relocation of the ELF binary, so that code depending on
+statics and globals will work correctly. It initializes the interposition
+layer.
+
+The elf_flatten step also crammed into the ELF a copy of the (first) program
+we want to run under interposition, the linux shared-library loader.
+elf_flatten injected into the ELF symbols that provide the location of
+the embedded program ("loader"), and a string symbol "manifest" that specifies
+parameters and environments to pass to the loader.
+
+elfmain parses the manifest into in-memory args & envs.
+
+elfmain applies pogo-patching to the loader (so that its system calls become
+calls to the interposition layer),
+then jumps into the loader. From there on out, the loader makes calls back
+down into the interpose layer for what it thinks are Posix OS services.

@@ -1,0 +1,23 @@
+--- /home/jonh/microsoft/genode/genode-11.11/base/include/base/lock.h	2011-11-29 06:49:29.000000000 -0800
++++ base/include/base/lock.h	2011-12-25 17:37:56.000000000 -0800
+@@ -15,6 +15,7 @@
+ #define _INCLUDE__BASE__LOCK_H_
+ 
+ #include <base/cancelable_lock.h>
++#include <base/stdint.h>
+ 
+ namespace Genode {
+ 
+@@ -42,6 +43,12 @@
+ 			 */
+ 			typedef Lock_guard<Lock> Guard;
+ 	};
++
++	// ugly opaque interfaces to Native_thread_id type, which we
++	// can't expose elegantly.
++	size_t Thread_id_size();
++	void Thread_id_my(void *tid);
++	void Thread_id_invalid(void *tid);
+ }
+ 
+ #endif /* _INCLUDE__BASE__LOCK_H_ */

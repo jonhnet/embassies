@@ -1,0 +1,10 @@
+--- build/source-files/dbus-1.2.24/debian/rules.old	2011-06-12 04:31:16.000000000 -0700
++++ build/source-files/dbus-1.2.24/debian/rules	2011-11-21 17:25:40.000000000 -0800
+@@ -21,6 +21,7 @@
+ DEB_CONFIGURE_EXTRA_FLAGS := \
+ 	--enable-xml-docs \
+ 	--enable-doxygen-docs \
++	--enable-verbose-mode \
+ 	--disable-libaudit
+ 
+ DEB_DH_INSTALLINIT_ARGS := -r -- start 12 2 3 4 5 .

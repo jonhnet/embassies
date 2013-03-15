@@ -1,0 +1,153 @@
+--- orig/rsa-orig/polarssl-0.10.0/library/bignum.c	2009-01-04 08:27:10.000000000 -0800
++++ patched/bignum.cpp	2012-09-25 11:12:06.000000000 -0700
+@@ -27,16 +27,20 @@
+  *  http://math.libtomcrypt.com/files/tommath.pdf
+  */
+ 
+-#include "polarssl/config.h"
++#include "LiteLib.h"
++#include "rsa_config.h"
+ 
+ #if defined(POLARSSL_BIGNUM_C)
+ 
+-#include "polarssl/bignum.h"
+-#include "polarssl/bn_mul.h"
+-
+-#include <string.h>
+-#include <stdlib.h>
++#include "ambient_malloc.h"
++#include "bignum.h"
++#include "bignum_mul.h"
+ #include <stdarg.h>
++#define strlen	lite_strlen
++#define memset	lite_memset
++#define memcpy	lite_memcpy
++#define malloc	ambient_malloc
++#define free	ambient_free
+ 
+ #define ciL    ((int) sizeof(t_int))    /* chars in limb  */
+ #define biL    (ciL << 3)               /* bits  in limb  */
+@@ -219,6 +223,9 @@
+  */
+ int mpi_size( mpi *X )
+ {
++	if (X == NULL || X->p == NULL) {
++		return 0;
++	} 
+     return( ( mpi_msb( X ) + 7 ) >> 3 );
+ }
+ 
+@@ -297,6 +304,7 @@
+     return( ret );
+ }
+ 
++#if 0
+ /*
+  * Helper to write the digits high-order first
+  */
+@@ -449,6 +457,7 @@
+ 
+     return( ret );
+ }
++#endif
+ 
+ /*
+  * Import X from unsigned binary data, big endian
+@@ -457,6 +466,10 @@
+ {
+     int ret, i, j, n;
+ 
++	if (buflen == 0) {
++		return 0;
++	}
++
+     for( n = 0; n < buflen; n++ )
+         if( buf[n] != 0 )
+             break;
+@@ -481,8 +494,16 @@
+ 
+     n = mpi_size( X );
+ 
+-    if( buflen < n )
+-        return( POLARSSL_ERR_MPI_BUFFER_TOO_SMALL );
++    if( buflen < n ) {	// Tell caller we need a bigger buffer
++        return( n );
++	}
++
++	if (n == 0) {	// Nothing to write
++		X->n = 0;
++		X->s = 0;
++		X->p = NULL;
++		return 0;
++	}
+ 
+     memset( buf, 0, buflen );
+ 
+@@ -1636,11 +1657,10 @@
+ /*
+  * Miller-Rabin primality test  (HAC 4.24)
+  */
+-int mpi_is_prime( mpi *X, int (*f_rng)(void *), void *p_rng )
++int mpi_is_prime( mpi *X, RandomSupply* random_supply )
+ {
+     int ret, i, j, n, s, xs;
+     mpi W, R, T, A, RR;
+-    unsigned char *p;
+ 
+     if( mpi_cmp_int( X, 0 ) == 0 )
+         return( 0 );
+@@ -1692,9 +1712,7 @@
+          */
+         MPI_CHK( mpi_grow( &A, X->n ) );
+ 
+-        p = (unsigned char *) A.p;
+-        for( j = 0; j < A.n * ciL; j++ )
+-            *p++ = (unsigned char) f_rng( p_rng );
++		random_supply->get_random_bytes((unsigned char *) A.p, A.n * ciL);
+ 
+         j = mpi_msb( &A ) - mpi_msb( &W );
+         MPI_CHK( mpi_shift_r( &A, j + 1 ) );
+@@ -1748,10 +1766,9 @@
+  * Prime number generation
+  */
+ int mpi_gen_prime( mpi *X, int nbits, int dh_flag,
+-                   int (*f_rng)(void *), void *p_rng )
++                   RandomSupply* random_supply )
+ {
+     int ret, k, n;
+-    unsigned char *p;
+     mpi Y;
+ 
+     if( nbits < 3 )
+@@ -1764,9 +1781,7 @@
+     MPI_CHK( mpi_grow( X, n ) );
+     MPI_CHK( mpi_lset( X, 0 ) );
+ 
+-    p = (unsigned char *) X->p;
+-    for( k = 0; k < X->n * ciL; k++ )
+-        *p++ = (unsigned char) f_rng( p_rng );
++	random_supply->get_random_bytes((unsigned char *) X->p, X->n * ciL);
+ 
+     k = mpi_msb( X );
+     if( k < nbits ) MPI_CHK( mpi_shift_l( X, nbits - k ) );
+@@ -1776,7 +1791,7 @@
+ 
+     if( dh_flag == 0 )
+     {
+-        while( ( ret = mpi_is_prime( X, f_rng, p_rng ) ) != 0 )
++        while( ( ret = mpi_is_prime( X, random_supply ) ) != 0 )
+         {
+             if( ret != POLARSSL_ERR_MPI_NOT_ACCEPTABLE )
+                 goto cleanup;
+@@ -1791,9 +1806,9 @@
+ 
+         while( 1 )
+         {
+-            if( ( ret = mpi_is_prime( X, f_rng, p_rng ) ) == 0 )
++            if( ( ret = mpi_is_prime( X, random_supply ) ) == 0 )
+             {
+-                if( ( ret = mpi_is_prime( &Y, f_rng, p_rng ) ) == 0 )
++                if( ( ret = mpi_is_prime( &Y, random_supply ) ) == 0 )
+                     break;
+ 
+                 if( ret != POLARSSL_ERR_MPI_NOT_ACCEPTABLE )

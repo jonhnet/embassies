@@ -1,0 +1,28 @@
+--- build/source-files/midori-0.2.4/midori/midori-browser.c-stock	2012-02-25 21:51:20.000000000 -0800
++++ build/source-files/midori-0.2.4/midori/midori-browser.c	2012-02-25 21:55:26.000000000 -0800
+@@ -25,6 +25,8 @@
+ #include "midori-searchaction.h"
+ #include "midori-stock.h"
+ 
++#include "xe_mark_perf_point.h"
++
+ #include "gtkiconentry.h"
+ #include "marshal.h"
+ #include "sokoke.h"
+@@ -444,7 +446,16 @@
+     progress = midori_view_get_progress (view);
+     /* When we are finished, we don't want to *see* progress anymore */
+     if (midori_view_get_load_status (view) == MIDORI_LOAD_FINISHED)
++	{
++		// dummy call into xax_posix_emulation to trigger time marker
++		xe_mark_perf_point("midori_load_finished");
++		
+         progress = 0.0;
++		struct timeval tv;
++		gettimeofday(&tv, NULL);
++		uint64_t ns = tv.tv_sec * 1000000000LL + tv.tv_usec*1000LL;
++		fprintf(stderr, "MIDORI_LOAD_FINISHED %08x%08x\n", (uint32_t) (ns>>32), (uint32_t) (ns&0xffffffff));
++	}
+     if (progress > 0.0)
+     {
+         gtk_progress_bar_set_fraction (GTK_PROGRESS_BAR (browser->progressbar),

@@ -1,0 +1,7 @@
+Links to all the debug versions of libraries here.
+By including this directory, we can get debug syms;
+by excluding it, we only include the -pie and patched libcs we
+need from the lib_links directory.
+
+And we can use *just* this directory from a posix context
+for debugging without stumbling over patched libcs.

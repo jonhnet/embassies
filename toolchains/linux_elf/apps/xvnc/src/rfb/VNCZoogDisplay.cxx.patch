@@ -1,0 +1,375 @@
+--- build-virgin/source-files/vnc4-4.1.1+X4.3.0/common/rfb/VNCZoogDisplay.cxx	1969-12-31 16:00:00.000000000 -0800
++++ build/source-files/vnc4-4.1.1+X4.3.0/common/rfb/VNCZoogDisplay.cxx	2012-04-27 09:08:24.440867475 -0700
+@@ -0,0 +1,372 @@
++#include <unistd.h>	// read
++
++#include "VNCZoogDisplay.h"
++#include "LiteLib.h"
++#include "ZRectangle.h"
++#include "pal_abi/pal_extensions.h"
++#include "pal_abi/pal_ui.h"
++#include "xax_extensions.h"
++#include "ZoogUISocket.h"
++
++using namespace rfb;
++
++VNCZoogDisplay::VNCZoogDisplay(VNCServerST* server_)
++{
++	this->server = server_;
++	server->add_zoog_display(this, this);
++
++	zdt = xe_get_dispatch_table();
++	if (zdt==(void*)-1)
++	{
++		return;
++	}
++	ZoogHostAlarms *alarms = (zdt->zoog_get_alarms)();
++	zoog_ui_zutex = &alarms->receive_ui_event;
++	zfd = xe_open_zutex_as_fd(zoog_ui_zutex);
++	zoog_ui_zutex_value = -1;
++	this->sock = new ZoogUISocket(zfd);
++
++	this->mouse_position = Point(0, 0);
++	this->mouse_button_mask = 0;
++}
++
++VNCZoogDisplay::~VNCZoogDisplay()
++{
++	// should never happen!
++	lite_assert(false);
++	// but if we decide it does happen someday, then we should
++	// make sure we do the stuff that ~VNCSConnectionST does, too.
++}
++
++bool VNCZoogDisplay::init()
++{
++	_wait_for_delegation();
++	return true;
++}
++
++void VNCZoogDisplay::_blocking_receive_ui_event(ZoogDispatchTable_v1 *zdt, ZoogHostAlarms *alarms, ZoogUIEvent *evt)
++{
++	while (1)
++	{
++		uint32_t match_val = alarms->receive_ui_event;
++		(zdt->zoog_receive_ui_event)(evt);
++		if (evt->type != zuie_no_event) { break; }
++		ZutexWaitSpec spec = { &alarms->receive_ui_event, match_val };
++		(zdt->zoog_zutex_wait)(&spec, 1);
++	}
++}
++
++void VNCZoogDisplay::_wait_for_delegation()
++{
++	debug_create_toplevel_window_f* debug_create_toplevel_window =
++		(debug_create_toplevel_window_f*)
++		(zdt->zoog_lookup_extension)(DEBUG_CREATE_TOPLEVEL_WINDOW_NAME);
++	ViewportID viewport_id = debug_create_toplevel_window();
++	set_up_canvas(viewport_id, PHASE_INIT);
++}
++
++void VNCZoogDisplay::set_up_canvas(ViewportID viewport_id, VNCZoogDisplay::Phase phase)
++{
++	// NB if we call this twice, we just abandon & leak the prior canvas.
++	// We haven't yet ironed out how we want it to work -- should we ever
++	// be substituting canvases? For now we do, so that the same code
++	// can both take the debugging environment's "free root canvas", and
++	// be used to accept an inbound viewport delegation.
++	canvas.data = NULL;
++
++	::PixelFormat known_formats[] = { zoog_pixel_format_truecolor24 };
++	(zdt->zoog_map_canvas)(
++		viewport_id,
++		known_formats,
++		1, // num_formats
++		&canvas);
++	lite_assert(canvas.data!=NULL);
++	canvas_rect = Rect(0, 0, canvas.width, canvas.height);
++
++#if 0
++#define XVNC_CANVAS_PATH "/tmp/xvnc_canvas_id"
++	FILE *fp = fopen(XVNC_CANVAS_PATH, "w");
++	if (fp==NULL)
++	{
++		fprintf(stderr, "Darn, xvnc couldn't emit %s\n", XVNC_CANVAS_PATH);
++	}
++	else
++	{
++		int rc = fwrite(&canvas.canvas_id, sizeof(canvas.canvas_id), 1, fp);
++		lite_assert(rc==1);
++		fclose(fp);
++	}
++	fprintf(stderr, "xvnc canvas_id now %d\n", canvas.canvas_id);
++#endif
++	this->viewport_id = viewport_id;
++	canvas_valid = true;
++
++	if (phase==PHASE_RUN)
++	{
++		Rect vnc_rect(0, 0, canvas.width, canvas.height);
++		Region vnc_region(vnc_rect);
++		server->add_changed(vnc_region);
++	}
++}
++
++void VNCZoogDisplay::unmap_canvas()
++{
++	(zdt->zoog_unmap_canvas)(canvas.canvas_id);
++	canvas_valid = false;
++}
++
++ViewportID VNCZoogDisplay::get_viewport_id()
++{
++	return viewport_id;
++}
++
++void VNCZoogDisplay::writeFramebufferUpdateOrClose()
++{
++	if (!canvas_valid)
++	{
++		return;
++	}
++
++//	fprintf(stderr, "VNCZoogDisplay::writeFramebufferUpdateOrClose\n");
++// TODO consider applying cursor-related region frobbing in VNCSConnectionST
++
++	UpdateInfo update;
++	//updates.enable_copyrect(cp.useCopyRect);
++	
++	updates.getUpdateInfo(&update, canvas_rect);
++
++	int bytes_per_pixel = zoog_bytes_per_pixel(canvas.pixel_format);
++	PixelFormat zpf(32, 24, false, true, 255, 255, 255, 16, 8, 0);
++	TransImageGetter zig;
++	zig.init(server->get_pixel_buffer(), zpf);
++//	fprintf(stderr, "update:\n");
++	Region *region = &update.changed;
++	Region updatedRegion;
++	std::vector<Rect>* rects = new std::vector<Rect>;
++	region->get_rects(rects);
++	for (unsigned i=0; i<rects->size(); i++)
++	{
++		Rect *orig_r = &(*rects)[i];
++		Rect r = orig_r->intersect(canvas_rect);
++		if (r.is_empty())
++		{
++			continue;
++		}
++		int data_offset = (canvas.width*r.tl.y + r.tl.x)*bytes_per_pixel;
++		int out_stride = canvas.width;
++/*
++		fprintf(stderr, "rect %d,%d--%d,%d data_offset %d out_stride %d\n",
++			r.tl.x, r.tl.y, r.br.x, r.br.y,
++			data_offset,
++			out_stride);
++*/
++//			memset(canvas.data, 0x00ff0000, canvas.width*canvas.height*bytes_per_pixel);
++		zig.getImage(canvas.data + data_offset, r, out_stride);
++#if 0
++		{
++		#define PIXEL(c, x, y)	(((uint32_t*)canvas.data)[x+y*canvas.width])
++			int v;
++			for (v=r.tl.x; v<=r.br.x; v++)
++			{
++				PIXEL(canvas, v, r.tl.y) = 0x00800080;
++				PIXEL(canvas, v, r.br.y) = 0x00800080;
++			}
++			for (v=r.tl.y; v<=r.br.y; v++)
++			{
++				PIXEL(canvas, r.tl.x, v) = 0x008000ff;
++				PIXEL(canvas, r.br.x, v) = 0x008000ff;
++			}
++		}
++#endif
++
++		lite_assert(r.tl.x+r.width() <= (int) canvas.width);
++		lite_assert(r.tl.y+r.height() <= (int) canvas.height);
++		ZRectangle zr = NewZRectangle(r.tl.x, r.tl.y, r.width(), r.height());
++		(zdt->zoog_update_canvas)(canvas.canvas_id, &zr);
++			
++		updatedRegion.assign_union(r);
++#if 0
++		fprintf(stderr, "  [x %d--%d, y %d--%d]\n",
++			(*rects)[i].tl.x,
++			(*rects)[i].br.x,
++			(*rects)[i].tl.y,
++			(*rects)[i].br.y);
++#endif
++	}
++#if 0
++	(zdt->zoog_update_canvas)(canvas.canvas_id,
++		0, 0, canvas.width, canvas.height);
++#endif
++	delete rects;
++//	fprintf(stderr, "ignoring %d copied rects:\n", update.copied.numRects());
++	updates.subtract(updatedRegion);
++}
++
++void VNCZoogDisplay::immediate_add_changed(const Region& region)
++{
++	if (!canvas_valid)
++	{
++		return;
++	}
++
++//	fprintf(stderr, "VNCZoogDisplay updates canvas %d\n", canvas.canvas_id);
++
++	PixelFormat zpf(32, 24, false, true, 255, 255, 255, 16, 8, 0);
++	TransImageGetter zig;
++	zig.init(server->get_pixel_buffer(), zpf);
++	int bytes_per_pixel = zoog_bytes_per_pixel(canvas.pixel_format);
++	std::vector<Rect>* rects = new std::vector<Rect>;
++	region.get_rects(rects);
++	for (unsigned i=0; i<rects->size(); i++)
++	{
++		Rect *orig_r = &(*rects)[i];
++		Rect r = orig_r->intersect(canvas_rect);
++		if (r.is_empty())
++		{
++			continue;
++		}
++		int data_offset = (canvas.width*r.tl.y + r.tl.x)*bytes_per_pixel;
++		int out_stride = canvas.width;
++		zig.getImage(canvas.data + data_offset, r, out_stride);
++
++		lite_assert(r.tl.x+r.width() <= (int) canvas.width);
++		lite_assert(r.tl.y+r.height() <= (int) canvas.height);
++		ZRectangle zr = NewZRectangle(r.tl.x, r.tl.y, r.width(), r.height());
++		(zdt->zoog_update_canvas)(canvas.canvas_id, &zr);
++//		fprintf(stderr, "  (%d,%d %dx%d)\n", zr.x, zr.y, zr.width, zr.height);
++	}
++	delete rects;
++}
++
++void VNCZoogDisplay::pixelBufferChange()
++{
++	updates.add_changed(server->get_pixel_buffer_rect());
++}
++
++void VNCZoogDisplay::add_changed(const Region& region)
++{
++	updates.add_changed(region);
++//	fprintf(stderr, "VNCZoogDisplay::add_changed\n");
++	server->checkUpdate();
++}
++
++void VNCZoogDisplay::add_copied(const Region& dest, const Point& delta)
++{
++	updates.add_copied(dest, delta);
++}
++
++bool VNCZoogDisplay::readyForUpdate()
++{
++	// look at 'obscured' bit from ui?
++	return true;
++}
++
++void VNCZoogDisplay::setCursorOrClose()
++{
++}
++
++bool VNCZoogDisplay::needRenderedCursor()
++{
++	return true;
++}
++
++void VNCZoogDisplay::renderedCursorChange()
++{
++}
++
++
++void VNCZoogDisplay::serverCutText(const char *str, int len)
++{
++}
++
++void VNCZoogDisplay::bell()
++{
++}
++
++network::Socket* VNCZoogDisplay::getSock()
++{
++	return this->sock;
++}
++
++void VNCZoogDisplay::processMessages()
++{
++	// reset the ZutexHandle's idea of freshness.
++	// reset *before* we actually poll the server, to avoid a race,
++	// since the ZutexHandle is what's going to block us next time.
++	char buf;
++	read(zfd, &buf, 1); 
++
++	uint32_t new_zoog_ui_zutex_value = *zoog_ui_zutex;
++	if (new_zoog_ui_zutex_value == zoog_ui_zutex_value)
++	{
++		fprintf(stderr, "WARN Early wake; select/poll ZutexHandle machinery isn't working right\n");
++	}
++	zoog_ui_zutex_value = new_zoog_ui_zutex_value;
++	bool got_one = false;
++	while (true)
++	{
++		ZoogUIEvent zevt;
++		(zdt->zoog_receive_ui_event)(&zevt);
++		if (zevt.type == zuie_no_event)
++		{
++			break;
++		}
++//		fprintf(stderr, "@zutex %d got evt.type==%x\n", zoog_ui_zutex_value, zevt.type);
++		switch (zevt.type)
++		{
++		case zuie_mouse_move:
++			_mouse_event(&zevt.un.mouse_event);
++			break;
++		case zuie_key_up:
++		case zuie_key_down:
++			_key_event(&zevt.un.key_event, zevt.type==zuie_key_down);
++			break;
++		case zuie_viewport_created:
++			// absorb these events; some other guy hears about this message
++			// via another channel and tells xvnc to switch to this path
++			// some other way.
++			break;
++		case zuie_canvas_closed:
++			// I don't think we want to call unmap_canvas; it may be
++			// assert-grouchy.
++			canvas_valid = false;
++			break;
++		default:
++			lite_assert(0);	// awesome! A new event type!
++		}
++		got_one = true;
++	}
++	if (!got_one)
++	{
++		fprintf(stderr, "WARN empty ui event notification.\n");
++		// if we see a lot of these, the monitor's zutex-signalling
++		// machinery is awry
++	}
++}
++
++void VNCZoogDisplay::_mouse_event(ZoogMouseEvent *mevt)
++{
++	mouse_position = Point(mevt->x, mevt->y);
++	server->get_desktop()->pointerEvent(mouse_position, mouse_button_mask);
++}
++
++void VNCZoogDisplay::_key_event(ZoogKeyEvent *kevt, bool down)
++{
++	if (zoog_keysym_is_button(kevt->keysym))
++	{
++		int this_button_mask = 1<<zoog_keysym_to_button(kevt->keysym);
++		if (down)
++		{
++			mouse_button_mask |= this_button_mask;
++		}
++		else
++		{
++			mouse_button_mask &= ~this_button_mask;
++		}
++		server->get_desktop()->pointerEvent(mouse_position, mouse_button_mask);
++	}
++	else
++	{
++		server->get_desktop()->keyEvent(kevt->keysym, down);
++	}
++}

@@ -1,0 +1,6 @@
+*** instructions rotted; use scripts/create_vendor.pl instead ***
+
+Hand-generated certs for the static vendor keys in ../keys/vendor-*.keys.
+
+../build/crypto_util --ekeypair ../keys/vendor-a.keys --cert vendor-a.cert --name vendor-a --skeypair ../keys/root.keys --inception `date +%s` --expires `echo \`date +%s\` + 31536000 | bc `
+../build/crypto_util --ekeypair ../keys/vendor-b.keys --cert vendor-b.cert --name vendor-b --skeypair ../keys/root.keys --inception `date +%s` --expires `echo \`date +%s\` + 31536000 | bc `

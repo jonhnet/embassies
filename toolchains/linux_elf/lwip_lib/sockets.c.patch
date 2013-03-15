@@ -1,0 +1,13 @@
+--- /tmp/sockets.c	2011-02-23 17:25:35.000000000 -0800
++++ ./build/lwip_release_dir/lwip-1.4.0.rc2/src/api/sockets.c	2011-02-23 17:26:20.000000000 -0800
+@@ -2340,4 +2340,10 @@
+   return ret;
+ }
+ 
++struct netconn *get_netconn_for_socket(int s)
++{
++  struct lwip_sock *sock = get_socket(s);
++  return sock->conn;
++}
++
+ #endif /* LWIP_SOCKET */

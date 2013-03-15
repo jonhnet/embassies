@@ -1,0 +1,41 @@
+--- patched/sha2big.c	2012-08-10 11:17:21.644067721 -0700
++++ ../crypto/sha2big.c	2012-04-03 13:22:01.117066555 -0700
+@@ -31,9 +31,10 @@
+  */
+ 
+ #include <stddef.h>
+-#include <string.h>
++//#include <string.h>
++#include "LiteLib.h"
+ 
+-#include "sph_sha2.h"
++#include "sha2.h"
+ 
+ #if SPH_64
+ 
+@@ -183,7 +184,7 @@
+ 	sph_sha384_context *sc;
+ 
+ 	sc = cc;
+-	memcpy(sc->val, H384, sizeof H384);
++	lite_memcpy(sc->val, H384, sizeof H384);
+ 	sc->count = 0;
+ }
+ 
+@@ -194,14 +195,14 @@
+ 	sph_sha512_context *sc;
+ 
+ 	sc = cc;
+-	memcpy(sc->val, H512, sizeof H512);
++	lite_memcpy(sc->val, H512, sizeof H512);
+ 	sc->count = 0;
+ }
+ 
+ #define RFUN   sha3_round
+ #define HASH   sha384
+ #define BE64   1
+-#include "md_helper.c"
++#include "sha2_helper.c.inc"
+ 
+ /* see sph_sha3.h */
+ void

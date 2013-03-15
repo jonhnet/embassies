@@ -1,0 +1,109 @@
+#
+# Arguments:
+#
+# ZOOG_ROOT -- the path to svn directory 'zoog'
+# PACKAGE_NAME -- the apt-package to 'source'
+# CACHED_SOURCE_TARBALLS -- a directory under ZOOG_ROOT/external-code
+#   containing stuff to precopy into source-files to avoid apt-get source
+#   network fetches.
+# PIE_NAME -- what you want the final executable to be named
+#		when it's copied out.
+# PRE_PATCH_SCRIPT -- what to do after unpacking but
+#		before starting the build
+# POST_PATCH_SCRIPT -- what to do after building but
+#		before extracting the binary
+# BUILT_PIE -- patth into the build directory pointing
+#		at the executable to extract
+#
+
+########## Variables
+
+PARALLEL_JOBS=-j8
+
+ifndef TARGETS
+	TARGETS=$(PIE_NAME)
+endif
+
+ifndef PIE_NAME
+	PIE_NAME=no_pie_extraction
+endif
+
+ifeq ('$(CACHED_SOURCE_TARBALLS)', '')
+	INJECT_CACHED_TARBALLS_CMD=true
+else
+	INJECT_CACHED_TARBALLS_CMD=cp $(realpath $(ZOOG_ROOT))/external-code/$(CACHED_SOURCE_TARBALLS)/* .
+endif
+
+ifeq ('$(PRE_PATCH_SCRIPT)', '')
+	PRE_PATCH_SCRIPT=true
+endif
+
+ifeq ('$(POST_PATCH_SCRIPT)', '')
+	POST_PATCH_SCRIPT=true
+endif
+
+ifndef NEW_CFLAGS
+	NEW_CFLAGS="-g -pie"
+endif
+ifndef NEW_LDFLAGS
+	NEW_LDFLAGS="-pie"
+endif
+
+PREREQUISITE_DIRS=$(ZOOG_ROOT)/toolchains/linux_elf/prune_elf_dynamic
+
+PRUNE_ELF_DYNAMIC_PATH=$(ZOOG_ROOT)/toolchains/linux_elf/prune_elf_dynamic/build/prune_elf_dynamic
+
+########## Include
+
+include $(ZOOG_ROOT)/toolchains/linux_elf/make.in
+
+########## Rules
+
+# I use a stamp file for the source-files dir, because otherwise
+# creating a file in the source-files directory (as build is wont to do)
+# invalidates the pre-patched stamp.
+$(BUILD)/stamp-unpacked:
+	make $(BUILD)
+	(cd $(BUILD) && \
+	mkdir -p source-files; \
+	cd source-files; \
+	$(INJECT_CACHED_TARBALLS_CMD); \
+	sudo http_proxy=$(http_proxy) apt-get --assume-yes source $(PACKAGE_NAME) && \
+	sudo http_proxy=$(http_proxy) apt-get --assume-yes build-dep $(PACKAGE_NAME) && \
+	sudo chown -R $(USER) . \
+	)
+	touch $@
+# Disconnected? dpkg-source -x vnc4_4.1.1+X4.3.0-37.dsc
+
+$(BUILD)/stamp-pre-patched: $(BUILD)/stamp-unpacked
+	$(PRE_PATCH_SCRIPT)
+	touch $@
+
+# dpkg-buildpackage 1.14.25 expects *_APPEND args;
+# the newer sarge one wants the DEB_*_SET args.
+# Also, consider adding noopt to DEB_BUILD_OPTIONS for peskily-optimized
+# libraries that you want to debug.
+$(BUILD)/stamp-compiled: $(BUILD)/stamp-pre-patched
+	(cd $(BUILD)/source-files && \
+	cd `ls -1 --group-directories-first . | head -1` && \
+	DEB_BUILD_OPTIONS="nostrip noopt" \
+	DEB_CFLAGS_SET=$(NEW_CFLAGS) \
+	CFLAGS_APPEND=$(NEW_CFLAGS) \
+	DEB_CXXFLAGS_SET=$(NEW_CFLAGS) \
+	DEB_LDFLAGS_SET=$(NEW_LDFLAGS) \
+	LDFLAGS_APPEND=$(NEW_LDFLAGS) \
+	dpkg-buildpackage -rfakeroot -b > ../build.log 2>&1) || true
+	touch $@
+# NB: we || true, because these builds often fail due
+# to being unable to sign the resulting binary. So we can't actually
+# tell if the build completes successfully; it always returns failure,
+# and then the ;touch always masks the failure.
+
+#	dpkg-source -x *.dsc && \
+
+$(BUILD)/stamp-post-patched: $(BUILD)/stamp-compiled
+	$(POST_PATCH_SCRIPT)
+	touch $@
+
+$(BUILD)/$(PIE_NAME): $(BUILD)/stamp-post-patched $(PRUNE_ELF_DYNAMIC_PATH)
+	$(PRUNE_ELF_DYNAMIC_PATH) $(wildcard $(BUILT_PIE)) $@

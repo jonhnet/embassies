@@ -1,0 +1,4 @@
+Test programs built against full posix/stdlib (ie, not paltest
+Spartan environment), but built -pie for execution inside Zoog.
+I expect these apps to be launched directly by elf_loader,
+rather than as a zguest Zone.

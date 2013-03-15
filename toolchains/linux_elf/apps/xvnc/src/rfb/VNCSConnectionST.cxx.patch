@@ -1,0 +1,20 @@
+--- build-virgin/source-files/vnc4-4.1.1+X4.3.0/common/rfb/VNCSConnectionST.cxx	2005-03-11 07:08:41.000000000 -0800
++++ build/source-files/vnc4-4.1.1+X4.3.0/common/rfb/VNCSConnectionST.cxx	2011-12-08 11:31:07.000000000 -0800
+@@ -46,7 +46,7 @@
+   lastEventTime = time(0);
+ 
+   // Add this client to the VNCServerST
+-  server->clients.push_front(this);
++  server->add_client(this);
+ }
+ 
+ 
+@@ -65,7 +65,7 @@
+     server->pointerClient = 0;
+ 
+   // Remove this client from the server
+-  server->clients.remove(this);
++  server->remove_client(this);
+ }
+ 
+ 

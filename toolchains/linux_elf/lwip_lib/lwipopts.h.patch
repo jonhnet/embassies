@@ -1,0 +1,15 @@
+--- build/lwip_release_dir/contrib-1.4.0.rc2/ports/unix/proj/unixsim/lwipopts.h	2011-02-03 04:51:27.000000000 -0800
++++ inc/lwipopts.h	2011-02-10 17:16:08.000000000 -0800
+@@ -151,10 +151,10 @@
+ #define TCP_QUEUE_OOSEQ         1
+ 
+ /* TCP Maximum segment size. */
+-#define TCP_MSS                 1024
++#define TCP_MSS                 1500
+ 
+ /* TCP sender buffer space (bytes). */
+-#define TCP_SND_BUF             2048
++#define TCP_SND_BUF             3000
+ 
+ /* TCP sender buffer space (pbufs). This must be at least = 2 *
+    TCP_SND_BUF/TCP_MSS for things to work. */

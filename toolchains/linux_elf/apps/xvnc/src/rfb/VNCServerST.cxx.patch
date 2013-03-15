@@ -1,0 +1,306 @@
+--- build-virgin/source-files/vnc4-4.1.1+X4.3.0/common/rfb/VNCServerST.cxx	2005-03-11 07:08:41.000000000 -0800
++++ build/source-files/vnc4-4.1.1+X4.3.0/common/rfb/VNCServerST.cxx	2012-03-11 15:47:51.000000000 -0700
+@@ -54,6 +54,8 @@
+ #include <rfb/SSecurityFactoryStandard.h>
+ #include <rfb/KeyRemapper.h>
+ #include <rfb/util.h>
++#include "VNCZoogDisplay.h"
++#include "ZoogCanvasController.h"
+ 
+ #include <rdr/types.h>
+ 
+@@ -79,6 +81,12 @@
+     useEconomicTranslate(false)
+ {
+   slog.debug("creating single-threaded server %s", name.buf);
++
++  VNCZoogDisplay* zoog_display = new VNCZoogDisplay(this);
++  zoog_display->init();
++
++  canvas_controller = new ZoogCanvasController(zoog_display);
++  add_socket(canvas_controller);
+ }
+ 
+ VNCServerST::~VNCServerST()
+@@ -89,9 +97,9 @@
+   closeClients("Server shutdown");
+ 
+   // Delete all the clients, and their sockets, and any closing sockets
+-  //   NB: Deleting a client implicitly removes it from the clients list
+-  while (!clients.empty()) {
+-    delete clients.front();
++  //   NB: Deleting a client implicitly removes it from the clients & displays lists
++  while (!_displays.empty()) {
++    delete _displays.front();
+   }
+ 
+   // Stop the desktop object if active, *only* after deleting all clients!
+@@ -129,11 +137,11 @@
+ 
+ void VNCServerST::removeSocket(network::Socket* sock) {
+   // - If the socket has resources allocated to it, delete them
+-  std::list<VNCSConnectionST*>::iterator ci;
+-  for (ci = clients.begin(); ci != clients.end(); ci++) {
+-    if ((*ci)->getSock() == sock) {
++  std::list<SocketIfc*>::iterator si;
++  for (si = _sockets.begin(); si != _sockets.end(); si++) {
++    if ((*si)->getSock() == sock) {
+       // - Delete the per-Socket resources
+-      delete *ci;
++      delete *si;
+ 
+       // - Check that the desktop object is still required
+       if (authClientCount() == 0 && desktopStarted) {
+@@ -152,10 +160,10 @@
+ void VNCServerST::processSocketEvent(network::Socket* sock)
+ {
+   // - Find the appropriate VNCSConnectionST and process the event
+-  std::list<VNCSConnectionST*>::iterator ci;
+-  for (ci = clients.begin(); ci != clients.end(); ci++) {
+-    if ((*ci)->getSock() == sock) {
+-      (*ci)->processMessages();
++  std::list<SocketIfc*>::iterator si;
++  for (si = _sockets.begin(); si != _sockets.end(); si++) {
++    if ((*si)->getSock() == sock) {
++      (*si)->processMessages();
+       return;
+     }
+   }
+@@ -166,7 +174,7 @@
+ {
+   int timeout = 0;
+   std::list<VNCSConnectionST*>::iterator ci, ci_next;
+-  for (ci=clients.begin();ci!=clients.end();ci=ci_next) {
++  for (ci=_clients.begin();ci!=_clients.end();ci=ci_next) {
+     ci_next = ci; ci_next++;
+     soonestTimeout(&timeout, (*ci)->checkIdleTimeout());
+   }
+@@ -187,10 +195,10 @@
+     cursor.setPF(pb->getPF());
+     renderedCursor.setPF(pb->getPF());
+ 
+-    std::list<VNCSConnectionST*>::iterator ci, ci_next;
+-    for (ci=clients.begin();ci!=clients.end();ci=ci_next) {
+-      ci_next = ci; ci_next++;
+-      (*ci)->pixelBufferChange();
++    std::list<DisplayIfc*>::iterator di, di_next;
++    for (di=_displays.begin();di!=_displays.end();di=di_next) {
++      di_next = di; di_next++;
++      (*di)->pixelBufferChange();
+     }
+   } else {
+     if (desktopStarted)
+@@ -201,7 +209,7 @@
+ void VNCServerST::setColourMapEntries(int firstColour, int nColours)
+ {
+   std::list<VNCSConnectionST*>::iterator ci, ci_next;
+-  for (ci = clients.begin(); ci != clients.end(); ci = ci_next) {
++  for (ci = _clients.begin(); ci != _clients.end(); ci = ci_next) {
+     ci_next = ci; ci_next++;
+     (*ci)->setColourMapEntriesOrClose(firstColour, nColours);
+   }
+@@ -209,25 +217,31 @@
+ 
+ void VNCServerST::bell()
+ {
+-  std::list<VNCSConnectionST*>::iterator ci, ci_next;
+-  for (ci = clients.begin(); ci != clients.end(); ci = ci_next) {
+-    ci_next = ci; ci_next++;
+-    (*ci)->bell();
++  std::list<DisplayIfc*>::iterator di, di_next;
++  for (di = _displays.begin(); di != _displays.end(); di = di_next) {
++    di_next = di; di_next++;
++    (*di)->bell();
+   }
+ }
+ 
+ void VNCServerST::serverCutText(const char* str, int len)
+ {
+-  std::list<VNCSConnectionST*>::iterator ci, ci_next;
+-  for (ci = clients.begin(); ci != clients.end(); ci = ci_next) {
+-    ci_next = ci; ci_next++;
+-    (*ci)->serverCutText(str, len);
++  std::list<DisplayIfc*>::iterator di, di_next;
++  for (di = _displays.begin(); di != _displays.end(); di = di_next) {
++    di_next = di; di_next++;
++    (*di)->serverCutText(str, len);
+   }
+ }
+ 
+ void VNCServerST::add_changed(const Region& region)
+ {
+   comparer->add_changed(region);
++
++  std::list<DisplayIfc*>::iterator di, di_next;
++  for (di = _displays.begin(); di != _displays.end(); di = di_next) {
++    di_next = di; di_next++;
++    (*di)->immediate_add_changed(region);
++  }
+ }
+ 
+ void VNCServerST::add_copied(const Region& dest, const Point& delta)
+@@ -237,9 +251,10 @@
+ 
+ bool VNCServerST::clientsReadyForUpdate()
+ {
+-  std::list<VNCSConnectionST*>::iterator ci;
+-  for (ci = clients.begin(); ci != clients.end(); ci++) {
+-    if ((*ci)->readyForUpdate())
++  std::list<DisplayIfc*>::iterator di, di_next;
++  for (di = _displays.begin(); di != _displays.end(); di = di_next) {
++    di_next = di; di_next++;
++    if ((*di)->readyForUpdate())
+       return true;
+   }
+   return false;
+@@ -247,10 +262,10 @@
+ 
+ void VNCServerST::tryUpdate()
+ {
+-  std::list<VNCSConnectionST*>::iterator ci, ci_next;
+-  for (ci = clients.begin(); ci != clients.end(); ci = ci_next) {
+-    ci_next = ci; ci_next++;
+-    (*ci)->writeFramebufferUpdateOrClose();
++  std::list<DisplayIfc*>::iterator di, di_next;
++  for (di = _displays.begin(); di != _displays.end(); di = di_next) {
++    di_next = di; di_next++;
++    (*di)->writeFramebufferUpdateOrClose();
+   }
+ }
+ 
+@@ -266,11 +281,11 @@
+ 
+   renderedCursorInvalid = true;
+ 
+-  std::list<VNCSConnectionST*>::iterator ci, ci_next;
+-  for (ci = clients.begin(); ci != clients.end(); ci = ci_next) {
+-    ci_next = ci; ci_next++;
+-    (*ci)->renderedCursorChange();
+-    (*ci)->setCursorOrClose();
++  std::list<DisplayIfc*>::iterator di, di_next;
++  for (di = _displays.begin(); di != _displays.end(); di = di_next) {
++    di_next = di; di_next++;
++    (*di)->renderedCursorChange();
++    (*di)->setCursorOrClose();
+   }
+ }
+ 
+@@ -279,9 +294,9 @@
+   if (!cursorPos.equals(pos)) {
+     cursorPos = pos;
+     renderedCursorInvalid = true;
+-    std::list<VNCSConnectionST*>::iterator ci;
+-    for (ci = clients.begin(); ci != clients.end(); ci++)
+-      (*ci)->renderedCursorChange();
++    std::list<DisplayIfc*>::iterator di;
++    for (di = _displays.begin(); di != _displays.end(); di++)
++      (*di)->renderedCursorChange();
+   }
+ }
+ 
+@@ -291,7 +306,7 @@
+                                     const char* reason)
+ {
+   std::list<VNCSConnectionST*>::iterator ci;
+-  for (ci = clients.begin(); ci != clients.end(); ci++) {
++  for (ci = _clients.begin(); ci != _clients.end(); ci++) {
+     if ((*ci)->getSock() == sock) {
+       (*ci)->approveConnectionOrClose(accept, reason);
+       return;
+@@ -302,7 +317,7 @@
+ void VNCServerST::closeClients(const char* reason, network::Socket* except)
+ {
+   std::list<VNCSConnectionST*>::iterator i, next_i;
+-  for (i=clients.begin(); i!=clients.end(); i=next_i) {
++  for (i=_clients.begin(); i!=_clients.end(); i=next_i) {
+     next_i = i; next_i++;
+     if ((*i)->getSock() != except)
+       (*i)->close(reason);
+@@ -312,9 +327,10 @@
+ void VNCServerST::getSockets(std::list<network::Socket*>* sockets)
+ {
+   sockets->clear();
+-  std::list<VNCSConnectionST*>::iterator ci;
+-  for (ci = clients.begin(); ci != clients.end(); ci++) {
+-    sockets->push_back((*ci)->getSock());
++  std::list<SocketIfc*>::iterator socki;
++
++  for (socki = _sockets.begin(); socki != _sockets.end(); socki++) {
++    sockets->push_back((*socki)->getSock());
+   }
+   std::list<network::Socket*>::iterator si;
+   for (si = closingSockets.begin(); si != closingSockets.end(); si++) {
+@@ -324,7 +340,7 @@
+ 
+ SConnection* VNCServerST::getSConnection(network::Socket* sock) {
+   std::list<VNCSConnectionST*>::iterator ci;
+-  for (ci = clients.begin(); ci != clients.end(); ci++) {
++  for (ci = _clients.begin(); ci != _clients.end(); ci++) {
+     if ((*ci)->getSock() == sock)
+       return *ci;
+   }
+@@ -348,7 +364,7 @@
+ int VNCServerST::authClientCount() {
+   int count = 0;
+   std::list<VNCSConnectionST*>::iterator ci;
+-  for (ci = clients.begin(); ci != clients.end(); ci++) {
++  for (ci = _clients.begin(); ci != _clients.end(); ci++) {
+     if ((*ci)->authenticated())
+       count++;
+   }
+@@ -357,9 +373,9 @@
+ 
+ inline bool VNCServerST::needRenderedCursor()
+ {
+-  std::list<VNCSConnectionST*>::iterator ci;
+-  for (ci = clients.begin(); ci != clients.end(); ci++)
+-    if ((*ci)->needRenderedCursor()) return true;
++  std::list<DisplayIfc*>::iterator di;
++  for (di = _displays.begin(); di != _displays.end(); di++)
++    if ((*di)->needRenderedCursor()) return true;
+   return false;
+ }
+ 
+@@ -408,12 +424,37 @@
+     renderedCursorInvalid = false;
+   }
+ 
+-  std::list<VNCSConnectionST*>::iterator ci, ci_next;
+-  for (ci = clients.begin(); ci != clients.end(); ci = ci_next) {
+-    ci_next = ci; ci_next++;
+-    (*ci)->add_copied(comparer->get_copied(), comparer->get_delta());
+-    (*ci)->add_changed(comparer->get_changed());
++  std::list<DisplayIfc*>::iterator di, di_next;
++  for (di = _displays.begin(); di != _displays.end(); di = di_next) {
++    di_next = di; di_next++;
++    (*di)->add_copied(comparer->get_copied(), comparer->get_delta());
++    (*di)->add_changed(comparer->get_changed());
+   }
+ 
+   comparer->clear();
+ }
++
++void VNCServerST::add_client(VNCSConnectionST *client)
++{
++	_clients.push_front(client);
++	_displays.push_front(client);
++	_sockets.push_front(client);
++}
++
++void VNCServerST::remove_client(VNCSConnectionST *client)
++{
++	_clients.remove(client);
++	_displays.remove(client);
++	_sockets.remove(client);
++}
++
++void VNCServerST::add_zoog_display(DisplayIfc *display, SocketIfc *socket)
++{
++	_displays.push_front(display);
++	_sockets.push_front(socket);
++}
++
++void VNCServerST::add_socket(SocketIfc *socket)
++{
++	_sockets.push_front(socket);
++}

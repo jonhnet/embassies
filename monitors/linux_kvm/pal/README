@@ -1,0 +1,7 @@
+This is the untrusted half of the host implementation, the
+"platform abstraction layer", or PAL. It runs inside the sandbox
+container, so it can be corrupted by a malicious host application.
+Thus it is not responsible to enforce any properties.
+Instead, it exists to glue between the generic, standard PAL ABI
+and the particular communication techinque we use to convey those
+requests to the trusted monitor.

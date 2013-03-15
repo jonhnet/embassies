@@ -1,0 +1,99 @@
+--- orig/rsa-orig/polarssl-0.10.0/include/polarssl/rsa.h	2009-01-12 13:48:39.000000000 -0800
++++ patched/rsa.h	2012-09-24 16:49:39.000000000 -0700
+@@ -22,7 +22,7 @@
+ #ifndef POLARSSL_RSA_H
+ #define POLARSSL_RSA_H
+ 
+-#include "polarssl/bignum.h"
++#include "bignum.h"
+ 
+ #define POLARSSL_ERR_RSA_BAD_INPUT_DATA                    -0x0400
+ #define POLARSSL_ERR_RSA_INVALID_PADDING                   -0x0410
+@@ -42,6 +42,7 @@
+ #define RSA_MD5         4
+ #define RSA_SHA1        5
+ #define RSA_SHA256      6
++#define RSA_SHA512      7	// Extrapolated
+ 
+ #define RSA_PUBLIC      0
+ #define RSA_PRIVATE     1
+@@ -69,6 +70,14 @@
+     "\x30\x21\x30\x09\x06\x05\x2B\x0E\x03"  \
+     "\x02\x1A\x05\x00\x04\x14"
+ 
++#define ASN1_HASH_SHA256                      \
++    "\x30\x31\x30\x0d\x06\x09\x60\x86\x48"  \
++    "\x01\x65\x03\x04\x02\x01\x05\x00\x04\x20"
++
++#define ASN1_HASH_SHA512                      \
++    "\x30\x51\x30\x0d\x06\x09\x60\x86\x48"  \
++    "\x01\x65\x03\x04\x02\x03\x05\x00\x04\x40"
++
+ /**
+  * \brief          RSA context structure
+  */
+@@ -93,8 +102,6 @@
+ 
+     int padding;                /*!<  1.5 or OAEP/PSS   */
+     int hash_id;                /*!<  hash identifier   */
+-    int (*f_rng)(void *);       /*!<  RNG function      */
+-    void *p_rng;                /*!<  RNG parameter     */
+ }
+ rsa_context;
+ 
+@@ -108,8 +115,6 @@
+  * \param ctx      RSA context to be initialized
+  * \param padding  RSA_PKCS_V15 or RSA_PKCS_V21
+  * \param hash_id  RSA_PKCS_V21 hash identifier
+- * \param f_rng    RNG function
+- * \param p_rng    RNG parameter
+  *
+  * \note           The hash_id parameter is actually ignored
+  *                 when using RSA_PKCS_V15 padding.
+@@ -119,9 +124,7 @@
+  */
+ void rsa_init( rsa_context *ctx,
+                int padding,
+-               int hash_id,
+-               int (*f_rng)(void *),
+-               void *p_rng );
++               int hash_id );
+ 
+ /**
+  * \brief          Generate an RSA keypair
+@@ -129,13 +132,14 @@
+  * \param ctx      RSA context that will hold the key
+  * \param nbits    size of the public key in bits
+  * \param exponent public exponent (e.g., 65537)
++ * \param p_rng    A supply of good randomness
+  *
+  * \note           rsa_init() must be called beforehand to setup
+- *                 the RSA context (especially f_rng and p_rng).
++ *                 the RSA context.
+  *
+  * \return         0 if successful, or an POLARSSL_ERR_RSA_XXX error code
+  */
+-int rsa_gen_key( rsa_context *ctx, int nbits, int exponent );
++int rsa_gen_key( rsa_context *ctx, int nbits, int exponent, RandomSupply* random_supply );
+ 
+ /**
+  * \brief          Check a public RSA key
+@@ -194,6 +198,7 @@
+  * \brief          Add the message padding, then do an RSA operation
+  *
+  * \param ctx      RSA context
+++* \param p_rng    RNG parameter
+  * \param mode     RSA_PUBLIC or RSA_PRIVATE
+  * \param ilen     contains the the plaintext length
+  * \param input    buffer holding the data to be encrypted
+@@ -205,8 +210,9 @@
+  *                 of ctx->N (eg. 128 bytes if RSA-1024 is used).
+  */
+ int rsa_pkcs1_encrypt( rsa_context *ctx,
++					   RandomSupply* random_supply,
+                        int mode, int  ilen,
+-                       unsigned char *input,
++                       const unsigned char *input,
+                        unsigned char *output );
+ 
+ /**

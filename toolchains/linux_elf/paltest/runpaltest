@@ -1,0 +1,5 @@
+rm debug_stderr
+rm debug_mmap
+../../../monitors/linux_dbg/pal/build/xax_port_pal build/paltest.raw
+cat debug_stderr
+

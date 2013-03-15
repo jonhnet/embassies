@@ -1,0 +1,148 @@
+--- build/xhyperoid-1.2/svga.c	2000-03-25 18:03:57.000000000 -0800
++++ xhyperoid-1.2-zoog/zooggraphics.c	2012-09-11 15:44:59.587547638 -0700
+@@ -1,8 +1,9 @@
+-/* svga.c */
++/* zooggraphics.c */
++// implements xhyperoid's "graphics.h" abstract interface,
++// using Zoog UI.
+ #include <stdio.h>
++#include <stdlib.h>
+ #include <ctype.h>
+-#include <vga.h>
+-#include <vgakeyboard.h>
+ 
+ #include "misc.h"	/* for POINT */
+ #include "convxpm.h"
+@@ -53,6 +54,13 @@
+ #define BMP_SCORE	15
+ #define BMP_SHIELD	16
+ 
++//////////////////////////////////////////////////////////////////////////////
++
++#include "zoogcpp.h"
++
++#define local_assert(c)	{if(!(c)){int*x=(int*)0;*x+=1;}}
++
++//////////////////////////////////////////////////////////////////////////////
+ 
+ static int current_x=0,current_y=0;
+ 
+@@ -67,11 +75,12 @@
+ #define convy(y)	(16+height/2-(y)*mindimhalf/MAX_COORD)
+ 
+ 
+-
+ int IsKeyDown(int key)
+ {
+ switch(key)
+   {
++  local_assert(0);	// need to implement key event tracking
++#if 0
+   case KEY_F1:		return(keyboard_keypressed(SCANCODE_F1));
+   case KEY_TAB:		return(keyboard_keypressed(SCANCODE_TAB));
+   case KEY_S:		return(keyboard_keypressed(SCANCODE_S));
+@@ -81,6 +90,7 @@
+   case KEY_UP:		return(keyboard_keypressed(SCANCODE_CURSORBLOCKUP));
+   case KEY_SPACE:	return(keyboard_keypressed(SCANCODE_SPACE));
+   case KEY_ESC:		return(keyboard_keypressed(SCANCODE_ESCAPE));
++#endif
+   default:
+     return(0);
+   }
+@@ -123,7 +133,7 @@
+   d = ay-(ax>>1);
+   for (;;)
+     {
+-    if(y>16) vga_drawpixel(x,y);
++    if(y>16) zoog_drawpixel(x,y);
+     if (x==x2) return;
+     if (d>=0)
+       {
+@@ -139,7 +149,7 @@
+   d = ax-(ay>>1);
+   for (;;) 
+     {
+-    if(y>16) vga_drawpixel(x,y);
++    if(y>16) zoog_drawpixel(x,y);
+     if (y==y2) return;
+     if (d>=0)
+       {
+@@ -187,14 +197,14 @@
+ /* doesn't set current_[xy] because hyperoid.c doesn't need it to */
+ void SetPixel(int x,int y,int c)
+ {
+-vga_setcolor(c);
+-vga_drawpixel(convx(x),convy(y));
++zoog_setcolor(c);
++zoog_drawpixel(convx(x),convy(y));
+ }
+ 
+ 
+ void set_colour(int c)
+ {
+-vga_setcolor(c);
++zoog_setcolor(c);
+ }
+ 
+ 
+@@ -244,7 +254,7 @@
+ 
+ for(y=0;y<16;y++)
+   for(x=0;x<nLen;x++)
+-    vga_drawscansegment(bitmaps[(int)szBuff[x]]+y*16,x*16,y,16);
++    zoog_drawscansegment(bitmaps[(int)szBuff[x]]+y*16,x*16,y,16);
+ }
+ 
+ 
+@@ -276,16 +286,15 @@
+     fprintf(stderr,"bad XPM data, conversion failed!\n"),exit(1);
+ }
+ 
+-
+ /* note that this actually changes palrgb[] (ouch :-)) */
+ void graphics_init(int argc,char *argv[],int *palrgb)
+ {
+-int f;
+-
+-vga_init();
++zoog_init();
+ 
+ conv_xpms(palrgb);
+ 
++#if 0
++int f;
+ if(vga_hasmode(G640x480x256))
+   vga_setmode(G640x480x256);
+ else
+@@ -293,19 +302,27 @@
+ 
+ for(f=0;f<16*3;f++) palrgb[f]>>=2;
+ vga_setpalvec(0,16,palrgb);
++#endif
+ 
+-keyboard_init();
++// keyboard_init();
+ }
+ 
+ 
+ void graphics_update(void)
+ {
+-keyboard_update();
++	// paint the display
++	zoog_paint_display();
++
++	// poll the zoog input events
++// TODO keyboard_update();
++
+ }
+ 
+ 
+ void graphics_exit(void)
+ {
+-keyboard_close();
+-vga_setmode(TEXT);
++	// give the display back?
++	local_assert(0);
++	//keyboard_close();
++	//vga_setmode(TEXT);
+ }

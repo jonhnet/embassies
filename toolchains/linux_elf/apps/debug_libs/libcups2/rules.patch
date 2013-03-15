@@ -1,0 +1,12 @@
+--- build/source-files/cups-1.4.4/debian/rules.orig	2011-03-06 22:29:40.000000000 -0800
++++ build/source-files/cups-1.4.4/debian/rules	2011-03-06 22:30:04.000000000 -0800
+@@ -17,8 +17,7 @@
+ 
+ unpatch: deapply-dpatches
+ 
+-DEB_CONFIGURE_EXTRA_FLAGS := --with-optim=$(DEB_OPTFLAGS) --libdir=/usr/lib --mandir=/usr/share/man --with-docdir=/usr/share/cups/doc-root --localedir=/usr/share/cups/locale --enable-slp --enable-libpaper --enable-ssl --enable-gnutls --disable-openssl --disable-threads --enable-static --enable-libusb --enable-dbus --with-dbusdir=/etc/dbus-1 --enable-gssapi --enable-avahi --with-pdftops=pdftops --disable-launchd --with-cups-group=lp --with-system-groups=lpadmin --with-printcap=/var/run/cups/printcap --with-log-file-perm=0640 CFLAGS="$(CFLAGS)"
+-
++DEB_CONFIGURE_EXTRA_FLAGS := --with-optim=$(DEB_OPTFLAGS) --libdir=/usr/lib --mandir=/usr/share/man --with-docdir=/usr/share/cups/doc-root --localedir=/usr/share/cups/locale --enable-slp --enable-libpaper --enable-ssl --enable-gnutls --disable-openssl --disable-threads --enable-static --enable-libusb --enable-dbus --with-dbusdir=/etc/dbus-1 --enable-gssapi --enable-avahi --with-pdftops=pdftops --disable-launchd --with-cups-group=lp --with-system-groups=lpadmin --with-printcap=/var/run/cups/printcap --with-log-file-perm=0640 CFLAGS="$(CFLAGS)"  --enable-debug-printfs
+ DEB_MAKE_INSTALL_TARGET := install BUILDROOT=$(DEB_DESTDIR)
+ DEB_INSTALL_CHANGELOGS_ALL := CHANGES.txt
+ 

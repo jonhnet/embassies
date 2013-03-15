@@ -1,0 +1,22 @@
+--- build-virgin/source-files/vnc4-4.1.1+X4.3.0/common/rfb/SConnection.h	2005-03-11 07:08:41.000000000 -0800
++++ build/source-files/vnc4-4.1.1+X4.3.0/common/rfb/SConnection.h	2011-12-11 15:10:14.000000000 -0800
+@@ -27,6 +27,7 @@
+ #include <rdr/OutStream.h>
+ #include <rfb/SMsgHandler.h>
+ #include <rfb/SSecurity.h>
++#include <rfb/SocketIfc.h>
+ 
+ namespace rfb {
+ 
+@@ -34,7 +35,10 @@
+   class SMsgWriter;
+   class SSecurity;
+ 
+-  class SConnection : public SMsgHandler {
++  class SConnection :
++  	public SMsgHandler,
++	  public SocketIfc
++  {
+   public:
+ 
+     SConnection(SSecurityFactory* sf, bool reverseConnection_);

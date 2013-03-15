@@ -1,0 +1,7 @@
+This module includes BlitterManager, a class that manage the dynamic
+relationships among a set of zoog viewports and canvases a monitor manages.
+The monitor-side interface is the BlitPalIfc (that is, how the monitor
+routes communication from the blit manager to the PAL that uses it).
+The implementation-side interface is the BlitProviderIfc; this is the
+thing that can draw on the display (eg, X for Linux, Nitpicker for Genode,
+or Win32 for Windows).

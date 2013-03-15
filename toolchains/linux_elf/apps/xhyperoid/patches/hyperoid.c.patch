@@ -1,0 +1,19 @@
+--- build/xhyperoid-1.2/hyperoid.c	2000-04-12 08:22:33.000000000 -0700
++++ xhyperoid-1.2-zoog/hyperoid.c	2012-09-11 15:44:24.711546182 -0700
+@@ -1426,6 +1426,8 @@
+ 
+ void wait_for_timer(void)
+ {
++	// TODO ask zoog to delay in 50ms units
++#if 0
+ sigset_t mask,oldmask;
+ 
+ sigemptyset(&mask);
+@@ -1441,6 +1443,7 @@
+ sigprocmask(SIG_UNBLOCK,&mask,NULL);
+ 
+ timer_flag=0;
++#endif
+ }
+ 
+ 

@@ -1,0 +1,79 @@
+#
+# Build
+#
+
+build {
+	core
+	init
+	nic_exercise
+	drivers/timer
+	drivers/pci
+	drivers/nic
+}
+
+create_boot_directory
+
+#
+# Generate config
+#
+
+set config {
+<config verbose="yes">
+	<parent-provides>
+		<service name="ROM"/>
+		<service name="RAM"/>
+		<service name="IRQ"/>
+		<service name="IO_MEM"/>
+		<service name="IO_PORT"/>
+		<service name="CAP"/>
+		<service name="PD"/>
+		<service name="RM"/>
+		<service name="CPU"/>
+		<service name="LOG"/>
+		<service name="SIGNAL"/>
+	</parent-provides>
+	<default-route>
+		<any-service> <parent/> <any-child/> </any-service>
+	</default-route>
+	<start name="timer">
+		<resource name="RAM" quantum="1M"/>
+		<provides><service name="Timer"/></provides>
+	</start>
+	<start name="nic_drv">
+		<resource name="RAM" quantum="2M"/>
+		<provides> <service name="Nic"/> </provides>
+	</start>
+}
+
+	# this conditional stuff means we should be able to wind
+	# the linux build back through here, if we have the patience...
+append_if [have_spec pci] config {
+	<start name="pci_drv">
+		<resource name="RAM" quantum="512K"/>
+		<provides> <service name="PCI"/> </provides>
+	</start> }
+	
+# this giant quantum takes up whatever init has left, so it needs
+# to run last.
+append config {
+	<start name="ne_main">
+		<resource name="RAM" quantum="10M"/>
+	</start>
+</config>
+}
+	
+install_config $config
+
+#
+# Boot image
+#
+
+set boot_modules { core init timer nic_drv ne_main }
+lappend_if [have_spec pci] boot_modules pci_drv
+build_boot_image $boot_modules
+
+set TAPDEV tap3
+append qemu_args " -nographic -m 1020M "
+append_if [have_spec x86]     qemu_args " -net nic,model=pcnet -net tap,ifname=$TAPDEV,script=no,downscript=no"
+
+run_genode_until forever

@@ -1,0 +1,48 @@
+diff -u -r ./jit/JIT.cpp /home/jonh/zoog/toolchains/linux_elf/apps/libwebkit/build/source-files/webkit-1.2.7/JavaScriptCore//jit/JIT.cpp
+--- ./jit/JIT.cpp	2012-09-18 17:14:57.000000000 -0700
++++ /home/jonh/zoog/toolchains/linux_elf/apps/libwebkit/build/source-files/webkit-1.2.7/JavaScriptCore//jit/JIT.cpp	2010-09-10 06:20:23.000000000 -0700
+@@ -53,20 +53,6 @@
+ 
+ namespace JSC {
+ 
+-void break_here(JITCode *code)
+-{
+-	size_t len = code->size();
+-	uint8_t* ptr = (uint8_t*) code->start();
+-	for (int i=0; i<len; i++)
+-	{
+-		fprintf(stderr, "%02x", ptr[i]);
+-		if (i==len-1 || ((i+1)%32)==0)
+-		{
+-			fprintf(stderr, "\n");
+-		}
+-	}
+-}
+-
+ void ctiPatchNearCallByReturnAddress(CodeBlock* codeblock, ReturnAddressPtr returnAddress, MacroAssemblerCodePtr newCalleeFunction)
+ {
+     RepatchBuffer repatchBuffer(codeblock);
+diff -u -r ./jit/JIT.h /home/jonh/zoog/toolchains/linux_elf/apps/libwebkit/build/source-files/webkit-1.2.7/JavaScriptCore//jit/JIT.h
+--- ./jit/JIT.h	2012-09-18 17:11:41.000000000 -0700
++++ /home/jonh/zoog/toolchains/linux_elf/apps/libwebkit/build/source-files/webkit-1.2.7/JavaScriptCore//jit/JIT.h	2010-09-10 06:20:23.000000000 -0700
+@@ -52,8 +52,6 @@
+ 
+ namespace JSC {
+ 
+-extern void break_here(JITCode *code);
+-
+     class CodeBlock;
+     class JIT;
+     class JSPropertyNameIterator;
+@@ -280,10 +278,7 @@
+     public:
+         static JITCode compile(JSGlobalData* globalData, CodeBlock* codeBlock)
+         {
+-            JITCode code = JIT(globalData, codeBlock).privateCompile();
+-			fprintf(stderr, "JIT::compile; code size %d\n", code.size());
+-			break_here(&code);
+-            return code;
++            return JIT(globalData, codeBlock).privateCompile();
+         }
+ 
+         static void compileGetByIdProto(JSGlobalData* globalData, CallFrame* callFrame, CodeBlock* codeBlock, StructureStubInfo* stubInfo, Structure* structure, Structure* prototypeStructure, const Identifier& ident, const PropertySlot& slot, size_t cachedOffset, ReturnAddressPtr returnAddress)

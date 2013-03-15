@@ -1,0 +1,7 @@
+#!/bin/bash
+for i in convxpm.c hyperoid.c roidsupp.c; do
+	echo $i
+	diff -u build/xhyperoid-1.2/$i xhyperoid-1.2-zoog/$i > patches/$i.patch
+done
+
+diff -u build/xhyperoid-1.2/svga.c xhyperoid-1.2-zoog/zooggraphics.c  > patches/zooggraphics.c.patch-create

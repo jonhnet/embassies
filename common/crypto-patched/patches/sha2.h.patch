@@ -1,0 +1,11 @@
+--- patched/sha2.h	2012-08-10 11:17:21.652067722 -0700
++++ ../crypto/sha2.h	2012-04-03 13:22:01.113066554 -0700
+@@ -41,7 +41,7 @@
+ #define SPH_SHA2_H__
+ 
+ #include <stddef.h>
+-#include "sph_types.h"
++#include "sha2_types.h"
+ 
+ /**
+  * Output size (in bits) for SHA-224.

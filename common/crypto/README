@@ -1,0 +1,64 @@
+
+crypto.h
+  Provides generic interface to various crypto primitives.
+  Unless you have a very good reason, please use these interfaces,
+  rather than directly invoking raw crypto primitives.
+
+There are now three types of certs:
+
+1) A certificate describing a binding from a key to a name
+   Semantics: The key that signs this cert says <<key speaksfor the name in label>>
+
+2) A certificate for a binary (no label)
+   Semantics: The key that signs this cert says <<binary speaksfor me>> 
+
+3) A certificate describing a binding from keyA to keyB
+   Semantics: The key that signs this cert says <<keySpeaker speaksfor keySpokenFor>>
+
+
+The ZRecord* record information about various crypto components
+in our system.  They are responsible for converting our crypto objects
+to and from DNSSEC records.
+
+The general convention is that you are responsible for calling
+"delete" on anything you called "new" on.  If you retrieve a pointer
+from a class via a "get", that class handles cleanup.  We aren't
+doing reference counting though, so you need to hold onto that
+class until you're done with (or have duplicated) the object you
+got from it.  The one exception is the ZRecord::spawn call,
+which creates a new object and expects you to clean it up.
+
+The classes that involve (de)serialization 
+(e.g., those that interact with DNSSEC) expect the buffer they're
+given for serialization to be at least length() in size.
+For deserialization, they expect a pointer and a size, and
+they expect the memory addresses in [pointer, pointer+size)
+to be valid (i.e., if pointer comes from the user, then the
+memory range needs to be validated).
+
+TODO: 
+- C code treats ZCert and ZPubKey as void*, which means we lose length info
+- Make crypto_util check: "when you certify a key, the key's colloquial --name matches the one it just got certified for"
+- Should the terminal's keypair survive a reboot?
+- Write out key pairs as public and private
+- Include more version numbers and associated multiplexing
+  to cope with different crypto versions and key lengths
+- Check more aggresively for arithmetic overflow bugs
+- Check cert expiration by range
+- Use SerialStream instead of buffer + length
+- Swap from RSA to ECC
+- Add security to the nav protocol, app communication in general
+X - Add some tests for ZCertChain
+X - Make Merkle tree use our improved hash
+X - Make RSA key generation RNG an extern defined by monitor
+X - Need to add syscall for app private symmetric key
+X - Create a CertChain object?
+X - ZSymKey should have and enforce a type: Enc, Mac, PRF, KDF
+X - ZSymKey should do all of the Enc, MAC, PRF work and return opaque objects
+X - Swap Cert to use ZPubKeyRecord, since ZPubKey carries sensitive data
+X - Factor ZApp
+X - Change sha2_helper.c to sha2_helper.c.inc
+X - Swap ordering of Cert param domain name in constructor
+X - Add support for Key-to-Key Certs
+X - Include public key in .signed file, perhaps by making a 
+    ZCert consist of object, signature, ZPubKeyRecord

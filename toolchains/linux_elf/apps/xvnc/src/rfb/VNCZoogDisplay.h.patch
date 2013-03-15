@@ -1,0 +1,78 @@
+--- build-virgin/source-files/vnc4-4.1.1+X4.3.0/common/rfb/VNCZoogDisplay.h	1969-12-31 16:00:00.000000000 -0800
++++ build/source-files/vnc4-4.1.1+X4.3.0/common/rfb/VNCZoogDisplay.h	2012-04-25 11:40:32.544825700 -0700
+@@ -0,0 +1,75 @@
++#pragma once
++
++#include <set>
++#include <rfb/SConnection.h>
++#include <rfb/SMsgWriter.h>
++#include <rfb/TransImageGetter.h>
++#include <rfb/VNCServerST.h>
++#include <rfb/DisplayIfc.h>
++#include "pal_abi/pal_abi.h"
++
++namespace rfb {
++	class VNCZoogDisplay :
++		public DisplayIfc,
++		public SocketIfc
++	{
++
++	public:
++		VNCZoogDisplay(VNCServerST* server_);
++		virtual ~VNCZoogDisplay();
++
++		bool init();
++
++		// TODO how does it poll for us? We've got a zutex to examine.
++		// Fold into select somehow via xax_posix_emulation? Eeeww!
++
++		virtual void writeFramebufferUpdateOrClose();
++		virtual void pixelBufferChange();
++		virtual void add_changed(const Region& region);
++		virtual void add_copied(const Region& dest, const Point& delta);
++		virtual void immediate_add_changed(const Region& region);
++		virtual bool readyForUpdate();
++
++		virtual void setCursorOrClose();
++		virtual bool needRenderedCursor();
++		virtual void renderedCursorChange();
++
++		virtual void serverCutText(const char *str, int len);
++			// route out to a disaggregated protocol, perhaps
++		virtual void bell();
++
++		// SocketIfc
++		virtual network::Socket* getSock();
++		virtual void processMessages();
++
++		// accessible from ZoogCanvasController
++		enum Phase { PHASE_INIT, PHASE_RUN };
++		void set_up_canvas(ViewportID viewport_id, Phase phase);
++		void unmap_canvas();
++		ViewportID get_viewport_id();
++
++	private:
++		void _blocking_receive_ui_event(ZoogDispatchTable_v1 *zdt, ZoogHostAlarms *alarms, ZoogUIEvent *evt);
++		void _wait_for_delegation();
++		void _mouse_event(ZoogMouseEvent *mevt);
++		void _key_event(ZoogKeyEvent *kevt, bool down);
++		
++
++		int zfd;
++		network::Socket* sock;
++		VNCServerST* server;
++		SimpleUpdateTracker updates;
++		TransImageGetter image_getter;
++		
++		ZoogDispatchTable_v1 *zdt;
++		uint32_t *zoog_ui_zutex;
++		uint32_t zoog_ui_zutex_value;
++		ViewportID viewport_id;
++		ZCanvas canvas;
++		bool canvas_valid;
++		Rect canvas_rect;
++
++		Point mouse_position;
++		int mouse_button_mask;
++	};
++}

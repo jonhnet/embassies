@@ -1,0 +1,14 @@
+I don't think this config file does anything. See zoog.run.
+<config>
+	<start name="zoog_monitor">
+		<resource name="RAM" quantum="2G"/>
+		<provides><service name="ZoogMonitor"/></provides>
+	</start>
+	<start name="timer">
+		<resource name="RAM" quantum="256K"/>
+	</start>
+	<start name="zoog_pal">
+		<resource name="RAM" quantum="400K"/>
+	</start>
+	blonk
+</config>

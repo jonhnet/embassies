@@ -1,0 +1,40 @@
+diff -Nru build/genode-11.11/base/include/base/x86_segments.h build-junk/build/genode-11.11/base/include/base/x86_segments.h
+--- old/build/genode-11.11/base/include/base/x86_segments.h	1969-12-31 16:00:00.000000000 -0800
++++ new/build/genode-11.11/base/include/base/x86_segments.h	2011-12-26 22:12:30.000000000 -0800
+@@ -0,0 +1,22 @@
++/*
++ * \brief   Interface to set x86 segment registers in underlying platform.
++ * \author  Jon Howell
++ * \date    2011.12.26
++ *
++ * Disgusting hole drilled through genode to allow Zoog to set
++ * x86 segment registers. I have no idea how to do this genode-correctly,
++ * so for now, we'll do it wrong. If this whole Zoog things catches on,
++ * maybe Norman Feske can help me find the right place to put this.
++ * Doing this feels awful, like tearing off a corner of the Mona Lisa
++ * to jot down a phone number.
++ */
++
++#include <base/stdint.h>
++
++namespace Genode {
++	class Set_x86_segments
++	{
++		public:
++			void platform_set_x86_segments(uint32_t fs, uint32_t gs);
++	};
++};
+Binary files build/genode-11.11/base/include/base/.x86_segments.h.swp and build-junk/build/genode-11.11/base/include/base/.x86_segments.h.swp differ
+diff -Nru build/genode-11.11/base/mk/base-libs.mk build-junk/build/genode-11.11/base/mk/base-libs.mk
+--- old/build/genode-11.11/base/mk/base-libs.mk	2011-11-28 07:15:34.000000000 -0800
++++ new/build/genode-11.11/base/mk/base-libs.mk	2011-12-26 22:02:38.000000000 -0800
+@@ -6,7 +6,7 @@
+ #
+ BASE_LIBS = alarm allocator_avl avl_tree cxx env heap \
+             ipc lock slab timed_semaphore thread signal \
+-            log_console slab
++            log_console slab x86_segments
+ 
+ #
+ # Name of Genode's dynamic linker
+Binary files build/genode-11.11/base/mk/.base-libs.mk.swp and build-junk/build/genode-11.11/base/mk/.base-libs.mk.swp differ

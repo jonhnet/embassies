@@ -1,0 +1,3 @@
+This service was a failed attempt to eliminate ZOOG_TUNIDs by using
+network broadcasts to learn the address for the zftp server. It didn't
+really solve the problem, and was a flaky hassle. It's now dead code.

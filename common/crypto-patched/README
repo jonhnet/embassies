@@ -1,0 +1,4 @@
+This directory contains patches against publicly-distributed crypto sources.
+At build time, it fetches the sources, applies zoog local patches, and
+leaves the patched sources in this directory, where they're incorporated
+from other modules. (They're bundled into make.modules' CRYPTO_MODULE.)

@@ -1,0 +1,34 @@
+--- /home/jonh/microsoft/genode/genode-11.11/base/src/base/lock/lock.cc	2011-11-29 06:49:30.000000000 -0800
++++ base/src/base/lock/lock.cc	2011-12-25 18:15:46.000000000 -0800
+@@ -18,6 +18,7 @@
+ 
+ /* local includes */
+ #include <lock_helper.h>
++#include <base/stdint.h>
+ 
+ using namespace Genode;
+ 
+@@ -212,3 +213,23 @@
+ 		lock();
+ }
+ 
++namespace Genode {
++
++	size_t Thread_id_size()
++	{
++		return sizeof(Native_thread_id);
++	}
++
++	void Thread_id_my(void *tid)
++	{
++		Native_thread_id *nid = (Native_thread_id *) tid;
++		*nid = thread_get_my_native_id();
++	}
++
++	void Thread_id_invalid(void *tid)
++	{
++		Native_thread_id *nid = (Native_thread_id *) tid;
++		*nid = thread_invalid_id();
++	}
++
++}

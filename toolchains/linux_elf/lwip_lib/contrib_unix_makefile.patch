@@ -1,0 +1,71 @@
+--- build/lwip_release_dir/contrib-1.4.0.rc2/ports/unix/proj/lib/Makefile	2011-02-03 04:51:26.000000000 -0800
++++ build/lwip_build_dir/Makefile	2012-04-04 21:00:19.071990735 -0700
+@@ -29,7 +29,14 @@
+ # Author: Adam Dunkels <adam@sics.se>
+ #
+ 
+-CONTRIBDIR=../../../..
++VPATH:=../../src:../../../common:../../../../../common/utils
++ZOOGINC:=\
++	-I../../inc \
++	-I../../../common/ \
++	-I../../../../../common/ifc \
++	-I../../../../../common/utils \
++
++CONTRIBDIR=../lwip_release_dir/contrib-1.4.0.rc2
+ LWIPARCH=$(CONTRIBDIR)/ports/unix
+ 
+ #Set this to where you have the lwip core module checked out from CVS
+@@ -39,11 +46,14 @@
+ 
+ CCDEP=gcc
+ CC=gcc
+-CFLAGS=-g -Wall -DIPv4 -DLWIP_DEBUG
++#CFLAGS=-g -Wall -Werror -DIPv4 -DLWIP_DEBUG -DZOOG_STAT64_STUB=1
++# turn off -Werror because new compiler is pickier, and I don't want
++# to fix all of lwip.
++CFLAGS=-g -Wall -DIPv4 -DLWIP_DEBUG -DZOOG_STAT64_STUB=1
+ 
+ CFLAGS:=$(CFLAGS) \
+ 	-I$(LWIPDIR)/include -I$(LWIPARCH)/include -I$(LWIPDIR)/include/ipv4 \
+-	-I$(LWIPDIR) -I.
++	-I$(LWIPDIR) -I. $(ZOOGINC)
+ 
+ # COREFILES, CORE4FILES: The minimum set of files needed for lwIP.
+ COREFILES=$(LWIPDIR)/core/mem.c $(LWIPDIR)/core/memp.c $(LWIPDIR)/core/netif.c \
+@@ -58,17 +68,21 @@
+ 
+ # APIFILES: The files which implement the sequential and socket APIs.
+ APIFILES=$(LWIPDIR)/api/api_lib.c $(LWIPDIR)/api/api_msg.c $(LWIPDIR)/api/tcpip.c \
+-	$(LWIPDIR)/api/err.c $(LWIPDIR)/api/sockets.c $(LWIPDIR)/api/netbuf.c $(LWIPDIR)/api/netdb.c
++	$(LWIPDIR)/api/err.c sockets.c $(LWIPDIR)/api/netbuf.c $(LWIPDIR)/api/netdb.c
+ 
+ # NETIFFILES: Files implementing various generic network interface functions.'
+ NETIFFILES=$(LWIPDIR)/netif/etharp.c
+ 
+ # ARCHFILES: Architecture specific files.
+-ARCHFILES=$(wildcard $(LWIPARCH)/*.c $(LWIPARCH)/netif/tapif.c $(LWIPARCH)/netif/tunif.c $(LWIPARCH)/netif/unixif.c $(LWIPARCH)/netif/list.c $(LWIPARCH)/netif/tcpdump.c)
++ARCHFILES=$(filter-out %/sys_arch.c,$(wildcard $(LWIPARCH)/*.c)) $(LWIPARCH)/netif/tapif.c $(LWIPARCH)/netif/tunif.c $(LWIPARCH)/netif/unixif.c $(LWIPARCH)/netif/list.c $(LWIPARCH)/netif/tcpdump.c \
++	xaxif.c zutex_sync.c cheesymalloc.c cheesylock.c \
++	get_xax_dispatch_table.c xax_arch.c unix_arch.c \
++	LegacyZClock.c \
+ 
+ # LWIPFILES: All the above.
+ LWIPFILES=$(COREFILES) $(CORE4FILES) $(APIFILES) $(NETIFFILES) $(ARCHFILES)
+-LWIPFILESW=$(wildcard $(LWIPFILES))
++#LWIPFILESW=$(wildcard $(LWIPFILES))
++LWIPFILESW=$(LWIPFILES)
+ LWIPOBJS=$(notdir $(LWIPFILESW:.c=.o))
+ 
+ LWIPLIB=liblwip.so
+@@ -86,8 +100,8 @@
+ 
+ include .depend
+ 
+-$(LWIPLIB): $(LWIPOBJS) unixlib.o
++$(LWIPLIB): $(LWIPOBJS) xaxlib.o
+ 	$(CC) -g -nostartfiles -shared -o $@ $^
+ 
+-.depend: unixlib.c $(LWIPFILES)
++.depend: xaxlib.c $(LWIPFILES)
+ 	$(CCDEP) $(CFLAGS) -MM $^ > .depend || rm -f .depend

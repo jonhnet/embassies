@@ -1,0 +1,4 @@
+navtest is an app that runs in zguest (to get LWIP access), but with no
+XVNC; it manages zoog-level viewports itself. See [2012.04.14].
+Its job is to provide a test harness for the deed-based viewport api change
+and the nav/tab mgr IP protocols.

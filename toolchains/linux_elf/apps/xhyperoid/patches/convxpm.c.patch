@@ -1,0 +1,61 @@
+--- build/xhyperoid-1.2/convxpm.c	2000-03-21 12:38:25.000000000 -0800
++++ xhyperoid-1.2-zoog/convxpm.c	2012-09-11 15:30:47.415512117 -0700
+@@ -22,8 +22,8 @@
+ 
+ 
+ /* prototypes */
+-unsigned char *next_token(unsigned char *ptr);
+-void get_token(unsigned char *token,int tokenmax,unsigned char *buf);
++char *next_token(char *ptr);
++void get_token(char *token,int tokenmax,char *buf);
+ 
+ 
+ 
+@@ -31,12 +31,12 @@
+ /* xpm_data is xpm array, palrgb is int array of r,g,b in range 0..255 */
+ unsigned char *xpm2bytemap(char *xpm_data[],int *palrgb)
+ {
+-static unsigned char smallcol2idx[256];
+-static unsigned char buf[128]; /* only used for magic/tokens so can be short */
+-static unsigned char colname[256];	/* temp. used to store colour name */
+-unsigned char *inpline;
++static char smallcol2idx[256];
++static char buf[128]; /* only used for magic/tokens so can be short */
++static char colname[256];	/* temp. used to store colour name */
++char *inpline;
+ int w,h,f,x,y,ncols,cpp;	/* cpp=chars/pixel */
+-unsigned char *bmap,*cptr,*ptr;
++char *bmap,*cptr,*ptr;
+ int cur_string=0;
+ 
+ /* get width/height etc. */
+@@ -197,17 +197,17 @@
+   
+   /* loop over line directly indexing in smallcol2idx */
+   for(x=0;x<w;x++)
+-    *ptr++=smallcol2idx[*cptr++];
++    *ptr++=smallcol2idx[(int) (*cptr++)];
+   }
+ 
+ free(colchars);
+ colchars=NULL;
+   
+-return(bmap);
++return((unsigned char*) bmap);
+ }
+ 
+ 
+-unsigned char *next_token(unsigned char *ptr)
++char *next_token(char *ptr)
+ {
+ while(*ptr!=0 && *ptr!=' ' && *ptr!='\t')
+   ptr++;
+@@ -217,7 +217,7 @@
+ }
+ 
+ 
+-void get_token(unsigned char *token,int tokenmax,unsigned char *buf)
++void get_token(char *token,int tokenmax,char *buf)
+ {
+ int n=0;
+ 

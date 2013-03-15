@@ -1,0 +1,11 @@
+--- rules.old	2011-11-22 22:26:32.000000000 -0800
++++ rules	2011-11-22 22:26:41.000000000 -0800
+@@ -42,7 +42,7 @@
+ 	rm -rf _build_
+ 
+ override_dh_auto_configure: $(WAFADMIN_FILE)
+-	$(WAF) --nocache configure --prefix /usr
++	LINKFLAGS="-pie -fpie" $(WAF) --nocache configure --prefix /usr
+ 
+ override_dh_auto_build: $(WAFADMIN_FILE)
+ 	$(WAF) --nocache build --debug full

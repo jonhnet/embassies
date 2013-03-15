@@ -1,0 +1,14 @@
+--- patched/sha2_types.h	2012-08-10 11:17:21.656067722 -0700
++++ ../crypto/sha2_types.h	2012-04-03 13:22:01.169066556 -0700
+@@ -47,7 +47,10 @@
+ #ifndef SPH_TYPES_H__
+ #define SPH_TYPES_H__
+ 
+-#include <limits.h>
++//#include <limits.h>
++#ifndef CHAR_BIT
++#define CHAR_BIT 8
++#endif
+ 
+ /*
+  * All our I/O functions are defined over octet streams. We do not know

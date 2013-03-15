@@ -1,0 +1,22 @@
+--- build-virgin/source-files/vnc4-4.1.1+X4.3.0/common/rfb/Makefile.in	2012-04-20 00:36:04.000000000 -0700
++++ build/source-files/vnc4-4.1.1+X4.3.0/common/rfb/Makefile.in	2012-04-20 10:24:37.009310239 -0700
+@@ -48,13 +48,18 @@
+   ZRLEDecoder.cxx \
+   encodings.cxx \
+   secTypes.cxx \
++  xax_extensions.cxx \
++  VNCZoogDisplay.cxx \
++  ZoogCanvasController.cxx \
++  ZRectangle.cxx \
+   util.cxx
+ 
+ SRCS = d3des.c $(CXXSRCS)
+ 
+ OBJS = d3des.o $(CXXSRCS:.cxx=.o)
+ 
+-DIR_CPPFLAGS = -I$(top_srcdir) @VSNPRINTF_DEFINE@
++include Makefile.zoog
++DIR_CPPFLAGS = -I$(top_srcdir) -I$(ZOOG_ROOT)/common/utils/ -I$(ZOOG_ROOT)/common/ifc/ -I$(ZOOG_ROOT)/common/crypto/ -I$(ZOOG_ROOT)/toolchains/linux_elf/common @VSNPRINTF_DEFINE@
+ 
+ library = librfb.a
+ 

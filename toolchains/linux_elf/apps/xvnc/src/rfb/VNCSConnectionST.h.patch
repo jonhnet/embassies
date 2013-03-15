@@ -1,0 +1,22 @@
+--- build-virgin/source-files/vnc4-4.1.1+X4.3.0/common/rfb/VNCSConnectionST.h	2005-03-11 07:08:41.000000000 -0800
++++ build/source-files/vnc4-4.1.1+X4.3.0/common/rfb/VNCSConnectionST.h	2011-12-10 21:18:16.000000000 -0800
+@@ -31,9 +31,11 @@
+ #include <rfb/SMsgWriter.h>
+ #include <rfb/TransImageGetter.h>
+ #include <rfb/VNCServerST.h>
++#include <rfb/DisplayIfc.h>
+ 
+ namespace rfb {
+   class VNCSConnectionST : public SConnection,
++  						   public DisplayIfc,
+                            public WriteSetCursorCallback {
+   public:
+     VNCSConnectionST(VNCServerST* server_, network::Socket* s, bool reverse);
+@@ -92,6 +94,7 @@
+     void add_copied(const Region& dest, const Point& delta) {
+       updates.add_copied(dest, delta);
+     }
++	void immediate_add_changed(const Region& region) {}
+ 
+     const char* getPeerEndpoint() const {return peerEndpoint.buf;}
+ 

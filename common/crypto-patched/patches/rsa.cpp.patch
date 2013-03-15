@@ -1,0 +1,243 @@
+--- orig/rsa-orig/polarssl-0.10.0/library/rsa.c	2009-01-12 13:48:39.000000000 -0800
++++ patched/rsa.cpp	2012-09-24 16:46:27.000000000 -0700
+@@ -26,32 +26,24 @@
+  *  http://www.cacr.math.uwaterloo.ca/hac/about/chap8.pdf
+  */
+ 
+-#include "polarssl/config.h"
++#include "rsa_config.h"
+ 
+ #if defined(POLARSSL_RSA_C)
+ 
+-#include "polarssl/rsa.h"
+-
+-#include <stdlib.h>
+-#include <string.h>
+-#include <stdio.h>
++#include "rsa.h"
++#include "LiteLib.h"
+ 
+ /*
+  * Initialize an RSA context
+  */
+ void rsa_init( rsa_context *ctx,
+                int padding,
+-               int hash_id,
+-               int (*f_rng)(void *),
+-               void *p_rng )
++               int hash_id )
+ {
+-    memset( ctx, 0, sizeof( rsa_context ) );
++    lite_memset( ctx, 0, sizeof( rsa_context ) );
+ 
+     ctx->padding = padding;
+     ctx->hash_id = hash_id;
+-
+-    ctx->f_rng = f_rng;
+-    ctx->p_rng = p_rng;
+ }
+ 
+ #if defined(POLARSSL_GENPRIME)
+@@ -59,12 +51,13 @@
+ /*
+  * Generate an RSA keypair
+  */
+-int rsa_gen_key( rsa_context *ctx, int nbits, int exponent )
++int rsa_gen_key( rsa_context *ctx, int nbits, int exponent,
++	RandomSupply* random_supply )
+ {
+     int ret;
+     mpi P1, Q1, H, G;
+ 
+-    if( ctx->f_rng == NULL || nbits < 128 || exponent < 3 )
++    if( nbits < 128 || exponent < 3 )
+         return( POLARSSL_ERR_RSA_BAD_INPUT_DATA );
+ 
+     mpi_init( &P1, &Q1, &H, &G, NULL );
+@@ -78,10 +71,10 @@
+     do
+     {
+         MPI_CHK( mpi_gen_prime( &ctx->P, ( nbits + 1 ) >> 1, 0, 
+-                                ctx->f_rng, ctx->p_rng ) );
++                                random_supply ) );
+ 
+         MPI_CHK( mpi_gen_prime( &ctx->Q, ( nbits + 1 ) >> 1, 0,
+-                                ctx->f_rng, ctx->p_rng ) );
++                                random_supply ) );
+ 
+         if( mpi_cmp_mpi( &ctx->P, &ctx->Q ) < 0 )
+             mpi_swap( &ctx->P, &ctx->Q );
+@@ -280,8 +273,9 @@
+  * Add the message padding, then do an RSA operation
+  */
+ int rsa_pkcs1_encrypt( rsa_context *ctx,
++					   RandomSupply* random_supply,
+                        int mode, int  ilen,
+-                       unsigned char *input,
++                       const unsigned char *input,
+                        unsigned char *output )
+ {
+     int nb_pad, olen;
+@@ -304,12 +298,12 @@
+             while( nb_pad-- > 0 )
+             {
+                 do {
+-                    *p = (unsigned char) rand();
++                    *p = random_supply->get_random_byte();
+                 } while( *p == 0 );
+                 p++;
+             }
+             *p++ = 0;
+-            memcpy( p, input, ilen );
++            lite_memcpy( p, input, ilen );
+             break;
+ 
+         default:
+@@ -374,7 +368,7 @@
+     	return( POLARSSL_ERR_RSA_OUTPUT_TO_LARGE );
+ 
+     *olen = ilen - (int)(p - buf);
+-    memcpy( output, p, *olen );
++    lite_memcpy( output, p, *olen );
+ 
+     return( 0 );
+ }
+@@ -404,16 +398,17 @@
+                     nb_pad = olen - 3 - hashlen;
+                     break;
+ 
+-                case RSA_MD2:
+-                case RSA_MD4:
+-                case RSA_MD5:
+-                    nb_pad = olen - 3 - 34;
+-                    break;
+-
+                 case RSA_SHA1:
+                     nb_pad = olen - 3 - 35;
+                     break;
+ 
++				case RSA_SHA256:
++					nb_pad = olen - 3 - 51; 
++                    break;
++				case RSA_SHA512:
++					nb_pad = olen - 3 - 83;
++                    break;
++
+                 default:
+                     return( POLARSSL_ERR_RSA_BAD_INPUT_DATA );
+             }
+@@ -423,7 +418,7 @@
+ 
+             *p++ = 0;
+             *p++ = RSA_SIGN;
+-            memset( p, 0xFF, nb_pad );
++            lite_memset( p, 0xFF, nb_pad );
+             p += nb_pad;
+             *p++ = 0;
+             break;
+@@ -436,29 +431,23 @@
+     switch( hash_id )
+     {
+         case RSA_RAW:
+-            memcpy( p, hash, hashlen );
++            lite_memcpy( p, hash, hashlen );
+             break;
+ 
+-        case RSA_MD2:
+-            memcpy( p, ASN1_HASH_MDX, 18 );
+-            memcpy( p + 18, hash, 16 );
+-            p[13] = 2; break;
+-
+-        case RSA_MD4:
+-            memcpy( p, ASN1_HASH_MDX, 18 );
+-            memcpy( p + 18, hash, 16 );
+-            p[13] = 4; break;
+-
+-        case RSA_MD5:
+-            memcpy( p, ASN1_HASH_MDX, 18 );
+-            memcpy( p + 18, hash, 16 );
+-            p[13] = 5; break;
+-
+         case RSA_SHA1:
+-            memcpy( p, ASN1_HASH_SHA1, 15 );
+-            memcpy( p + 15, hash, 20 );
++            lite_memcpy( p, ASN1_HASH_SHA1, 15 );
++            lite_memcpy( p + 15, hash, 20 );
++            break;
++
++        case RSA_SHA256:
++            lite_memcpy( p, ASN1_HASH_SHA256, 19);
++            lite_memcpy( p + 19, hash, 32 );
+             break;
+ 
++        case RSA_SHA512:
++            lite_memcpy( p, ASN1_HASH_SHA512, 19 );
++            lite_memcpy( p + 19, hash, 64 );
++
+         default:
+             return( POLARSSL_ERR_RSA_BAD_INPUT_DATA );
+     }
+@@ -524,14 +513,14 @@
+         c = p[13];
+         p[13] = 0;
+ 
+-        if( memcmp( p, ASN1_HASH_MDX, 18 ) != 0 )
++        if( lite_memcmp( p, ASN1_HASH_MDX, 18 ) != 0 )
+             return( POLARSSL_ERR_RSA_VERIFY_FAILED );
+ 
+         if( ( c == 2 && hash_id == RSA_MD2 ) ||
+             ( c == 4 && hash_id == RSA_MD4 ) ||
+             ( c == 5 && hash_id == RSA_MD5 ) )
+         {
+-            if( memcmp( p + 18, hash, 16 ) == 0 ) 
++            if( lite_memcmp( p + 18, hash, 16 ) == 0 ) 
+                 return( 0 );
+             else
+                 return( POLARSSL_ERR_RSA_VERIFY_FAILED );
+@@ -540,16 +529,34 @@
+ 
+     if( len == 35 && hash_id == RSA_SHA1 )
+     {
+-        if( memcmp( p, ASN1_HASH_SHA1, 15 ) == 0 &&
+-            memcmp( p + 15, hash, 20 ) == 0 )
++        if( lite_memcmp( p, ASN1_HASH_SHA1, 15 ) == 0 &&
++            lite_memcmp( p + 15, hash, 20 ) == 0 )
+             return( 0 );
+         else
+             return( POLARSSL_ERR_RSA_VERIFY_FAILED );
+     }
+ 
++	if ( len == 51 && hash_id == RSA_SHA256 )
++	{
++        if( lite_memcmp( p, ASN1_HASH_SHA256, 19 ) == 0 &&
++            lite_memcmp( p + 19, hash, 32 ) == 0 )
++            return( 0 );
++        else
++            return( POLARSSL_ERR_RSA_VERIFY_FAILED );
++	}
++
++	if ( len == 83 && hash_id == RSA_SHA512 )
++	{
++        if( lite_memcmp( p, ASN1_HASH_SHA512, 19 ) == 0 &&
++            lite_memcmp( p + 19, hash, 64 ) == 0 )
++            return( 0 );
++        else
++            return( POLARSSL_ERR_RSA_VERIFY_FAILED );
++	}
++
+     if( len == hashlen && hash_id == RSA_RAW )
+     {
+-        if( memcmp( p, hash, hashlen ) == 0 )
++        if( lite_memcmp( p, hash, hashlen ) == 0 )
+             return( 0 );
+         else
+             return( POLARSSL_ERR_RSA_VERIFY_FAILED );
+@@ -690,7 +697,7 @@
+         return( 1 );
+     }
+ 
+-    if( memcmp( rsa_decrypted, rsa_plaintext, len ) != 0 )
++    if( lite_memcmp( rsa_decrypted, rsa_plaintext, len ) != 0 )
+     {
+         if( verbose != 0 )
+             printf( "failed\n" );

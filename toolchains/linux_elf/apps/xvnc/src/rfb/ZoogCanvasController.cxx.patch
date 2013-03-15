@@ -1,0 +1,111 @@
+--- build-virgin/source-files/vnc4-4.1.1+X4.3.0/common/rfb/ZoogCanvasController.cxx	1969-12-31 16:00:00.000000000 -0800
++++ build/source-files/vnc4-4.1.1+X4.3.0/common/rfb/ZoogCanvasController.cxx	2012-04-25 11:41:07.472996441 -0700
+@@ -0,0 +1,108 @@
++#include <assert.h>
++#include <errno.h>
++// socket / bind
++#include <sys/types.h>
++#include <sys/socket.h>
++#include <sys/un.h>
++// fcntl
++#include <unistd.h>
++#include <fcntl.h>
++
++#include "ZoogCanvasController.h"
++#include "LiteLib.h"
++#include "pal_abi/pal_extensions.h"
++#include "pal_abi/pal_ui.h"
++#include "xax_extensions.h"
++#include "VNCZoogDisplay.h"
++#include "ZoogControlSocket.h"
++#include "XvncControlProtocol.h"
++
++using namespace rfb;
++
++ZoogCanvasController::ZoogCanvasController(VNCZoogDisplay *_zoog_display)
++	: zoog_display(_zoog_display)
++{
++	int rc;
++
++	listensock = socket(AF_UNIX, SOCK_STREAM, 0);
++
++	struct sockaddr_un sun;
++	sun.sun_family = AF_UNIX;
++
++	strcpy(sun.sun_path, XVNC_CONTROL_SOCKET_PATH);
++	rc = bind(listensock, (struct sockaddr*) &sun, sizeof(sun));
++	assert(rc==0);
++
++	int oflags = fcntl(listensock, F_GETFL);
++	rc = fcntl(listensock, F_SETFL, oflags | O_NONBLOCK);
++	assert(rc==0);
++
++	sock = new ZoogControlSocket(listensock);
++}
++
++network::Socket* ZoogCanvasController::getSock()
++{
++	return sock;
++}
++
++void ZoogCanvasController::processMessages()
++{
++	int rc;
++	while (true)
++	{
++		fprintf(stderr, "ZoogCanvasController wakes to process message.\n");
++		struct sockaddr addr;
++		socklen_t addrlen = sizeof(addr);
++		int pipesock = accept(listensock, &addr, &addrlen);
++		if (pipesock < 0 && errno==EAGAIN)
++		{
++			fprintf(stderr, "ZoogCanvasController: no more messages.\n");
++			// our work here is done
++			break;
++		}
++
++		assert(pipesock >= 0);
++
++		char buf[512];
++		rc = read(pipesock, buf, sizeof(buf));
++		if (rc < (int) sizeof(XCHeader))
++		{
++			fprintf(stderr, "ZoogCanvasController: uh-oh-failure read rc=%d errno=%d\n", rc, errno);
++			lite_assert(false);
++			break;
++		}
++		XCHeader* xch = (XCHeader*) buf;
++		switch (xch->opcode)
++		{
++		case XCChangeViewport::OPCODE:
++		{
++			lite_assert(rc == sizeof(XCChangeViewport));
++			XCChangeViewport* xccv = (XCChangeViewport*) buf;
++			fprintf(stderr, "ZoogCanvasController: new viewport at %d\n", xccv->viewport_id);
++			zoog_display->set_up_canvas(xccv->viewport_id, VNCZoogDisplay::PHASE_RUN);
++			break;
++		}
++		case XCUnmapCanvas::OPCODE:
++		{
++			lite_assert(rc == sizeof(XCUnmapCanvas));
++//			XCChangeViewport* xccv = (XCChangeViewport*) buf;
++			fprintf(stderr, "ZoogCanvasController: unmap_canvas\n");
++			zoog_display->unmap_canvas();
++			break;
++		}
++		case XCReadViewportRequest::OPCODE:
++		{
++			XCReadViewportReply xcvr;
++			xcvr.opcode = XCReadViewportReply::OPCODE;
++			xcvr.viewport_id = zoog_display->get_viewport_id();
++			rc = write(pipesock, &xcvr, sizeof(xcvr));
++			lite_assert(rc==sizeof(xcvr));
++			break;
++		}
++		default:
++			lite_assert(false);	// unknown opcode
++
++		}
++		close(pipesock);
++	}
++}

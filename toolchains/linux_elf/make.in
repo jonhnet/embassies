@@ -1,0 +1,132 @@
+#########
+
+export ZOOG_ROOT
+
+mapSrcsToObjs=$(patsubst %,$(BUILD)/%,$(patsubst %.S,%.o,$(patsubst %.c,%.o,$(patsubst %.cpp,%.o,$(1)))))
+
+# A member of "MODULES" is a makefile-free directory
+# (it has no build/ of its own) that supplies includes & sources
+# meant to be built in multiple other directories.
+# This would be done (in preference to a library) when each other
+# directory needed the module built with incompatible -DDEFINES or compiler
+# flags.
+
+BUILD=./build
+VPATH=$(BUILD) $(MODULES)
+MODULE_INCS=$(patsubst %,-I%,$(MODULES))
+
+STRICT_CXX_FLAGS=-Wall -Werror
+STRICT_C_FLAGS=$(STRICT_CXX_FLAGS) -Werror-implicit-function-declaration
+Z_CFLAGS:=\
+	$(CFLAGS) -g $(MODULE_INCS) $(STRICT_C_FLAGS) \
+
+Z_CXXFLAGS=\
+	$(CFLAGS) -g $(MODULE_INCS) $(STRICT_CXX_FLAGS) -fno-rtti \
+	
+CC:=$(CC) $(Z_CFLAGS)
+CXX:=$(CXX) $(Z_CXXFLAGS)
+BUILD_TARGETS=$(patsubst %,$(BUILD)/%,$(TARGETS))
+
+########## Targets
+
+all: build_prerequisites $(BUILD) $(BUILD_TARGETS)
+
+# Generating dependencies for the next invocation, per the "Tom Tromey"
+# method at: http://mad-scientist.net/make/autodep.html#basic
+$(BUILD)/%.o: %.c
+	# make the dependency
+	($(CC) $< -M -MF $@.tmp; \
+	if [ $$? -ne 0 ]; then \
+		rm $@.tmp; false; \
+	else \
+		sed 's#\([^.]*\).o:#$(BUILD)/\1.o: #' < $@.tmp > $(patsubst %.o,%.dep,$@) && \
+		rm $@.tmp; \
+	fi)
+	($(CC) -c $< -o $@ )
+
+#sed 's#\([^.]*\).o:#$(BUILD)/\1.o $(patsubst %.o,%.dep,$@): #' < $@.tmp > $(patsubst %.o,%.dep,$@) && \
+
+$(BUILD)/%.o: %.cpp
+	# make the dependency
+	($(CXX) $< -M -MF $@.tmp; \
+	if [ $$? -ne 0 ]; then \
+		rm $@.tmp; false; \
+	else \
+		sed 's#\([^.]*\).o:#$(BUILD)/\1.o: #' < $@.tmp > $(patsubst %.o,%.dep,$@) && \
+		rm $@.tmp; \
+	fi)
+	($(CXX) -c $< -o $@ )
+
+$(BUILD)/%.o: %.S
+	# make the dependency
+	($(CC) $< -M -MF $@.tmp; \
+	if [ $$? -ne 0 ]; then \
+		rm $@.tmp; false; \
+	else \
+		sed 's#\([^.]*\).o:#$(BUILD)/\1.o: #' < $@.tmp > $(patsubst %.o,%.dep,$@) && \
+		rm $@.tmp; \
+	fi)
+	($(CC) -c $< -o $@ )
+
+SCRIPTS_DIR=$(ZOOG_ROOT)/toolchains/linux_elf/scripts
+CRYPTO_DIR=$(ZOOG_ROOT)/toolchains/linux_elf/crypto
+#KEY_STORE=$(CRYPTO_DIR)/$(BUILD)/dev_principal.local
+
+#$(BUILD)/%.cert: $(BUILD)/%.raw 
+#	$(CRYPTO_DIR)/$(BUILD)/crypto_util \
+#    --binary $^ \
+#		--cert $@ \
+#		--skeypair $(KEY_STORE).keys \
+#		--inception `date +%s` \
+#		--expires `echo \`date +%s\` + 31536000 | bc ` \
+
+$(BUILD)/%.signed: $(BUILD)/%.cert $(BUILD)/%.raw
+	  $(SCRIPTS_DIR)/signed_binary_bundler.py $^ $@
+
+-include $(patsubst %.S,$(BUILD)/%.dep,$(patsubst %.cpp,$(BUILD)/%.dep,$(patsubst %.c,$(BUILD)/%.dep,$(DEP_SRCS))))
+-include $(patsubst %.o,$(BUILD)/%.dep,$(MODULE_OBJS))
+
+$(BUILD):
+	mkdir -p $(BUILD)
+
+clean:
+	rm -rf $(BUILD)
+
+build_prerequisites: $(LIBC_BASE)
+	for dir in $(PREREQUISITE_DIRS); do \
+		$(MAKE) -C $${dir}; \
+		if [ $$? -ne 0 ]; then echo fail; exit -1; fi \
+	done
+	true
+.PHONY : build_prerequisites
+
+
+#SLOC_CMD = sloccount . $(MODULES) | egrep "^[0-9]"
+FIND_DEP = $(ZOOG_ROOT)/toolchains/linux_elf/scripts/find_dependencies.pl
+SLOC_CMD = sloccount --details `$(FIND_DEP) $(BUILD)/*.dep | sort | tr '\n' ' '` 
+tcb: 
+	$(SLOC_CMD) > $(BUILD)/tcb.out
+	@echo --------------------
+	@echo -n Total: 
+	@cat $(BUILD)/tcb.out | cut -f 1 | awk '{s+=$$1} END {print s}'
+	@echo --------------------
+	@echo -n C:
+	@cat $(BUILD)/tcb.out | grep cpp | cut -f 1 | awk '{s+=$$1} END {print s}'
+	@echo -n C++:
+	@cat $(BUILD)/tcb.out | grep ansic|  cut -f 1 | awk '{s+=$$1} END {print s}'
+	@echo --------------------
+	@echo -n .h files:
+	@cat $(BUILD)/tcb.out | grep "h$$" | cut -f 1 | awk '{s+=$$1} END {print s}'
+	@echo -n non-.h files:
+	@cat $(BUILD)/tcb.out | grep "[^h]$$" | cut -f 1 | awk '{s+=$$1} END {print s}'
+	@echo --------------------
+	@echo stuff we wrote:
+	@cat $(BUILD)/tcb.out | grep "\s/home" | cut -f 1 | awk '{s+=$$1} END {print s}'
+	@echo system headers:
+	@cat $(BUILD)/tcb.out | grep -v "\s/home" | cut -f 1 | awk '{s+=$$1} END {print s}'
+
+#SLOC_DETAILS_CMD = sloccount --details . $(MODULES) | egrep "^[0-9]"
+#tcb-details: 
+#	@$(SLOC_DETAILS_CMD)
+#	@echo --------------------
+#	@$(SLOC_DETAILS_CMD) | cut -f 1 | awk '{s+=$$1} END {print s}'

@@ -1,0 +1,31 @@
+--- build-virgin/source-files/vnc4-4.1.1+X4.3.0/common/rfb/ZoogUISocket.h	1969-12-31 16:00:00.000000000 -0800
++++ build/source-files/vnc4-4.1.1+X4.3.0/common/rfb/ZoogUISocket.h	2011-12-11 15:27:57.000000000 -0800
+@@ -0,0 +1,28 @@
++#include "network/Socket.h"
++
++namespace rfb {
++  class ZoogUISocket : public network::Socket {
++  public:
++    ZoogUISocket(int fd)
++      : network::Socket(fd) {}
++  
++    virtual char* getMyAddress()
++		{ return (char*) "ZoogUIEvent_pseudo_socket_local"; }
++    virtual int getMyPort()
++		{ return 2009; }
++    virtual char* getMyEndpoint()
++		{ return (char*) "ZoogUIEvent_pseudo_socket_local::2009"; }
++
++    // information about the remote end of the socket
++    virtual char* getPeerAddress()
++		{ return (char*) "ZoogUIEvent_pseudo_socket_monitor"; }
++    virtual int getPeerPort()
++		{ return 2009; }
++    virtual char* getPeerEndpoint()
++		{ return (char*) "ZoogUIEvent_pseudo_socket_monitor::2009"; }
++
++    // Is the remote end on the same machine?
++    virtual bool sameMachine()
++		{ return true; }
++  };
++}

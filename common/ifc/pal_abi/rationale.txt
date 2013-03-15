@@ -1,0 +1,38 @@
+The design choices in the abi are an attempt to balance the following
+goals:
+
+Simplicity. A simple interface with a simple specification that admits
+correct, perhaps even provably-correct, implementations. Making zoog
+implementations correct puts individual software vendors in a position
+of autonomy, since they aren't subject to intrusion via bugs in the
+host, or incompleteness in its specification that leads to new inter-app
+behaviors.
+
+Hardware transparency.
+The interface should admit general-purpose, low-level C/assembly programs.
+In contrast to binding to a particular high-level language, this ensures
+that vendors can import any library they might need.
+
+Application portability.
+Example: including x86 segment registers in the x86 ABI isn't strictly
+necessary, since applications could be recompiled to use a user-mode register
+at a small performance penalty. But doing so dramatically lowers the burden
+on porting toolchains, and is a very local property with easily-specified
+semantics.
+
+Host generality. The ABI should be implementable on today's widely-deployed
+clients. Doing so improves deployability.
+Example: the constraint that applications can't choose their VM map
+serves this purpose, by allowing the monitor to obey host VM
+layout constraints.
+
+Performance.
+In general, we're willing to mostly de-prioritize performance.
+Desktop/UI machines are, in large part, comfortably overprovisioned;
+how many times has our community lamented the excess of 5% performance
+improvement papers versus the lack of stability/security improvement papers?
+We're willing to spend some performance to get a simpler, more robust CEI.
+That said, a lower-order goal is to design interfaces that admit pretty
+good performance.
+Example: the network interfaces are designed to allow the host to arrange
+for zero-copy memory transfers of large messages among applications.

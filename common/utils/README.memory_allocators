@@ -1,0 +1,38 @@
+An explanation of all the memory allocators in the Zoog tree.
+
+
+
+MallocFactory is a malloc-like interface designed to be used even
+in environments where no ambient allocator is available: there's
+not even a global where we can store a reference to a shared arena.
+
+The idea is that if lightweight utility libraries do all their allocation
+via MallocFactory, then they can be used both in such spartan environments
+and in ordinary code (which supplies a trivial implementation of
+the MallocFactory interface).
+
+I'm not entirely certain that any such spartan environments still exist;
+improvements in how I do initialization code and factor out bootstrap
+code may have obviated this interface. Yet it permeates. Sorry about that.
+
+Below malloc_factory, ordinary stdlib programs can supply the interface
+with standard_malloc_factory, which simply passes calls through to
+malloc().
+
+If we're in a spartan environment, we use a non-thread-local
+allocator (cheesy_malloc) to implement malloc_factory; that's what
+cheesy_malloc_factory is.
+
+cheesy_malloc in turn depends on an interface to supply page-granularity
+allocations; that's AbstractMmapIfc in abstract_mmap.h, which can be
+implemented via a ZoogDispatchTable (concrete_mmap_xdt) or posix mmap
+(concrete_mmap_posix). A stomp_detector has a AbstractMmapIfc on both
+sides, and is inserted for block-level memory stomp debugging.
+
+These stacks of allocators are a pain to manage; zoog_malloc_factory
+provides a nice bundle of everything you need when sitting on top of a
+ZoogDispatchTable.
+
+On *top* of MallocFactory, the malloc_factory_operator_new class implements
+C++'s operator new in terms of a malloc_factory (rather than the default,
+based on the ambient and thread-local malloc() implementation).

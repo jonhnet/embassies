@@ -1,0 +1,12 @@
+Zoog patches:
+
+The patches/ mostly fix compiler warnings, since we compile with -Wall.
+
+patches/hyperoid neuters the sigsuspend call, since I'm too lazy to
+neuter it in xax_posix_emulation's system call table. (And, of course,
+what we really need to do is replace that timer delay with an instance
+of a Zoog zutex timer.)
+
+The new code implements the zoog instance of graphics.h, which paints on
+a zoog canvas. I implemented it by gutting and rewiring the svga.c
+implementation, so that interface is also done as a patch against svga.c.

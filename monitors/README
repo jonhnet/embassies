@@ -1,0 +1,32 @@
+linux_kvm -- the main real monitor. Secure; zero copy. Used for all published
+	perf measurements.
+
+linux_dbg -- a debugging environment that meets the pal_abi interface.
+	It doesn't even pretend to isolate; a rogue binary could just bring
+	along its own int 0x80s. Useful because the resulting processes are
+	ordinary linux processes, to which gdb may be attached.
+	It also includes a memory profiler and a sampling perf profiler.
+
+	I wrote this monitor first to make progress on the DPI toolkit;
+	the linux_kvm monitor is better factored. Rather than maintaining
+	this one, it would be better to drop it, and introduce a debug-monitor
+	option to the linux_kvm monitor.
+
+linux_ptrace -- I thought about writing a ptrace-based monitor, to have one
+	usable on non-kvm-enabled machines. I got as far
+	as starting to figure out how to ensure it fails closed.
+
+common -- interfaces and implementations of the Zoog UI abstractions.
+	The implementations are abstract and must be supplied with concrete
+	accessors to the underlying display and PAL connection. Used in both
+	linux monitors; should be integrated into genode and others as well.
+
+linux_common -- shared memory machinery and X Windows UI accessors
+	common to the monitors..
+
+genode -- a microkernel monitor based on Genode's L4::Pistachio instance.
+
+win -- where a windows-host monitor goes. This release does not include
+	a windows monitor, because the most current version is pretty far
+	behind the current zoog ABI. Hopefully a future release will include
+	an updated win monitor.

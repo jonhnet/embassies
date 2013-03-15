@@ -1,0 +1,342 @@
+diff -N -u -r build/genode-11.11/base-pistachio/contrib/kernel/src/api/v4/exregs.cc base-pistachio-new//contrib/kernel/src/api/v4/exregs.cc
+--- build/genode-11.11/base-pistachio/contrib/kernel/src/api/v4/exregs.cc	2011-12-27 17:36:07.000000000 -0800
++++ base-pistachio-new//contrib/kernel/src/api/v4/exregs.cc	2011-12-27 17:26:14.000000000 -0800
+@@ -394,6 +394,22 @@
+     return false;
+ }
+ 
++static word_t get_gdt(void)
++{
++    word_t got_gdt;
++    __asm__ __volatile__(
++		       "movl $gdt, %%eax\n\t"
++		       "movl %%eax, %0"
++		       : "=m" (got_gdt) 
++		       :
++		       :"%eax"
++			 );
++    
++    return got_gdt;
++}
++
++
++#include INC_ARCH(segdesc.h)
+ 
+ SYS_EXCHANGE_REGISTERS (threadid_t dst_tid, word_t control, 
+ 			word_t usp, word_t uip, word_t uflags,
+@@ -403,6 +419,45 @@
+ 
+     tcb_t *current = get_current_tcb();
+     exregs_ctrl_t ctrl(control);
++
++    /**
++       Zoog Patch: override the exchange register system call
++       for setting the GDT entry
++     **/
++    //if(usp == 0x12345678 || uflags == 0x87654321)
++    if(usp == 0xfeedbeef)
++    {
++
++#   define gdt_idx(x) ((x) >> 3)
++	x86_segdesc_t* gdt = (x86_segdesc_t *)get_gdt();
++	//printf("In ExReg I got an gdt of 0x%lx, gsbase = %p, fsbase = %p.\n", gdt, uip, uflags);
++	gdt[gdt_idx(X86_ZTLS)].set_seg(uip, ~0UL, 3, x86_segdesc_t::data);
++
++#if 0
++	u8_t *raw = (u8_t*) &gdt[gdt_idx(X86_ZTLS)];
++    printf("zoog patch get in; setting gs = 0x%08x; idx is %x; base is %08x;\n",
++		uip,
++		gdt_idx(X86_ZTLS),
++		gdt[gdt_idx(X86_ZTLS)].get_base());
++	printf("@%08x: raw %02x %02x %02x %02x %02x %02x %02x %02x\n",
++		(u32_t) raw,
++		raw[0], raw[1], raw[2], raw[3],
++		raw[4], raw[5], raw[6], raw[7]
++		);
++	printf("gdt address %08x\n", (u32_t) gdt);
++	enter_kdebug("After write in exregs.cc");
++	printf("@%08x: raw %02x %02x %02x %02x %02x %02x %02x %02x\n",
++		(u32_t) raw,
++		raw[0], raw[1], raw[2], raw[3],
++		raw[4], raw[5], raw[6], raw[7]
++		);
++	enter_kdebug("Check again");
++#endif
++	gdt[gdt_idx(X86_ZFS)].set_seg(uflags, ~0UL, 3, x86_segdesc_t::data);
++	//printf("zoog patch get out.\n");
++	return_exchange_registers (threadid_t::nilthread (), 0, 0, 0, 0,
++				   threadid_t::nilthread (), 0);
++    }
+     
+     TRACEPOINT (SYSCALL_EXCHANGE_REGISTERS,
+ 		"SYS_EXCHANGE_REGISTERS: current %t, dst=%t [%s], control=0x%x [%s]"
+diff -N -u -r build/genode-11.11/base-pistachio/contrib/kernel/src/api/v4/tcb.h base-pistachio-new//contrib/kernel/src/api/v4/tcb.h
+--- build/genode-11.11/base-pistachio/contrib/kernel/src/api/v4/tcb.h	2011-12-27 17:36:07.000000000 -0800
++++ base-pistachio-new//contrib/kernel/src/api/v4/tcb.h	2011-12-26 16:56:32.000000000 -0800
+@@ -313,6 +313,15 @@
+ public:
+     resource_bits_t	resource_bits;
+     word_t *		stack;
++
++    //ZOOG PATCH
++    word_t              save_gs;
++    word_t              save_fs;
++    word_t              save_tls_a;
++    word_t              save_tls_b;
++    word_t              save_fs_a;
++    word_t              save_fs_b;
++
+ private:
+     /* VU: pdir_cache should be architecture-specific!!! */
+     word_t		pdir_cache;
+diff -N -u -r build/genode-11.11/base-pistachio/contrib/kernel/src/api/v4/thread.cc base-pistachio-new//contrib/kernel/src/api/v4/thread.cc
+--- build/genode-11.11/base-pistachio/contrib/kernel/src/api/v4/thread.cc	2011-12-27 17:36:07.000000000 -0800
++++ base-pistachio-new//contrib/kernel/src/api/v4/thread.cc	2011-12-26 16:57:12.000000000 -0800
+@@ -169,6 +169,14 @@
+ void tcb_t::init(threadid_t dest, sktcb_type_e type)
+ {
+     ASSERT(this);
++
++    /** ZOOG Patch: init zoog tcb fields **/
++    save_gs = 0x2b;
++    save_fs = 0x23;
++    save_tls_a = 0;
++    save_tls_b = 0;
++    save_fs_a = 0;
++    save_fs_b = 0;
+     
+     /* clear utcb and space */
+     utcb = NULL;
+diff -N -u -r build/genode-11.11/base-pistachio/contrib/kernel/src/glue/v4-x86/x32/config.h base-pistachio-new//contrib/kernel/src/glue/v4-x86/x32/config.h
+--- build/genode-11.11/base-pistachio/contrib/kernel/src/glue/v4-x86/x32/config.h	2011-12-27 17:36:07.000000000 -0800
++++ base-pistachio-new//contrib/kernel/src/glue/v4-x86/x32/config.h	2011-12-26 16:57:57.000000000 -0800
+@@ -164,6 +164,11 @@
+ #define X86_TSS		0x30
+ #define X86_KDB		0x38
+ 
++/*** Zoog patch, a new segment for glibc tls ***/
++#define X86_ZTLS        0x63     //entry number 12(0xc), offset: 011
++#define X86_ZFS         0x6b     //fs for windows apps:entry number: 0xD, offset: 011
++
++
+ /* user mode e-flags */
+ #if defined(CONFIG_X86_PVI)
+ #define X86_USER_FLAGS      (X86_FLAGS_IOPL(0) | X86_FLAGS_IF | X86_FLAGS_VIF | 2)
+diff -N -u -r build/genode-11.11/base-pistachio/contrib/kernel/src/glue/v4-x86/x32/init.cc base-pistachio-new//contrib/kernel/src/glue/v4-x86/x32/init.cc
+--- build/genode-11.11/base-pistachio/contrib/kernel/src/glue/v4-x86/x32/init.cc	2011-12-27 17:36:07.000000000 -0800
++++ base-pistachio-new//contrib/kernel/src/glue/v4-x86/x32/init.cc	2011-12-26 16:58:33.000000000 -0800
+@@ -143,6 +143,12 @@
+ 				    sizeof(threadid_t) - 1,
+ 				    3, x86_segdesc_t::data);
+ 
++    /*Zoog Patch: init the zoog glibc TLS segment*/
++    gdt[gdt_idx(X86_ZTLS)].set_seg(0, ~0UL, 3, x86_segdesc_t::data);
++    gdt[gdt_idx(X86_ZFS)].set_seg(0, ~0UL, 3, x86_segdesc_t::data);
++    printf("zoog debug: gdt table = 0x%lx.Initalizaed with Zoog segments.\n", gdt);
++
++
+     /* the TSS
+      * The last byte in x86_x32_tss_t is a stopper for the IO permission bitmap.
+      * That's why we set the limit in the GDT to one byte less than the actual
+diff -N -u -r build/genode-11.11/base-pistachio/contrib/kernel/src/glue/v4-x86/x32/tcb.h base-pistachio-new//contrib/kernel/src/glue/v4-x86/x32/tcb.h
+--- build/genode-11.11/base-pistachio/contrib/kernel/src/glue/v4-x86/x32/tcb.h	2011-12-27 17:36:07.000000000 -0800
++++ base-pistachio-new//contrib/kernel/src/glue/v4-x86/x32/tcb.h	2011-12-26 17:01:25.000000000 -0800
+@@ -136,6 +136,65 @@
+     active_cpu_space.set(get_cpu(), dest->space);
+ #endif
+ 
++    //ZOOG Patch: save the gs and tls descriptor
++
++    __asm__ __volatile__ (
++	"movl %%gs, %%eax\n\t"
++	"movl %%eax, %0\n\t"
++	"movl %%fs, %%eax\n\t"
++	"movl %%eax, %1\n\t"
++	"movl $"MKSTR(X86_UTCBS)", %%edx\n\t"
++	"movl %%edx, %%gs\n\t"
++	"movl $"MKSTR(X86_UDS)", %%edx\n\t"
++	"movl %%edx, %%fs\n\t"
++	        : "=m" (this->save_gs),
++		  "=m" (this->save_fs)
++	        :
++	: "%eax", "%edx"
++			 );
++    //only save valid tls selector
++    if(this->save_gs != X86_ZTLS && this->save_gs != X86_UTCBS)
++    {
++      //printf("saved_gs = %lx\n", this->save_gs);
++        this->save_gs = X86_UTCBS;
++    }
++    //only save valid tls selector
++    if(this->save_fs != X86_ZFS && this->save_fs != X86_UDS)
++    {
++      //printf("saved_gs = %lx\n", this->save_gs);
++        this->save_fs = X86_UDS;
++    }
++
++    //save the tls and gs descriptor
++    __asm__ __volatile__ (
++	"movl $gdt, %%eax\n\t"
++	"movl 96(%%eax), %0\n\t"
++	"movl 100(%%eax), %1\n\t"
++	"movl 104(%%eax), %2\n\t"
++	"movl 108(%%eax), %3"
++	        : "=r" (this->save_tls_a),
++                  "=r" (this->save_tls_b),
++		  "=r" (this->save_fs_a),
++		  "=r" (this->save_fs_b)
++	        : 	          
++	        : "%eax"
++			 );
++    if(this->save_tls_a == 0 && this->save_tls_b == 0)  //first time
++    {
++        this->save_tls_a = 0xffff;
++        this->save_tls_b = 0xcff300;
++    }
++
++    if(this->save_fs_a == 0 && this->save_fs_b == 0)  //first time
++    {
++        this->save_fs_a = 0xffff;
++        this->save_fs_b = 0xcff300;
++    }
++
++    
++    //printf("tls a = %lx, tls b = %lx\n", this->save_tls_a, this->save_tls_b);
++
++
+ #if defined(CONFIG_X86_SMALL_SPACES)
+     __asm__ __volatile__ (
+ 	"/* switch_to_thread */				\n"
+@@ -252,6 +311,27 @@
+ 	"2:			\n\t"
+ 	"popl	%%edx		\n\t"	/* load activation addr */
+ 	"movl	%3, %%gs:0	\n\t"	/* update current UTCB */
++	
++	/*ZOOG Patch*/
++	"movl	$gdt, %%eax	\n\t"   /* load new tls */
++	"movl	%c10(%2), %%ecx \n\t" 
++	"movl   %%ecx, 96(%%eax)\n\t"   
++	"movl	%c11(%2), %%ecx \n\t"
++	"movl   %%ecx, 100(%%eax)\n\t"   
++
++	"movl	%c13(%2), %%ecx \n\t" 
++	"movl   %%ecx, 104(%%eax)\n\t"   
++	"movl	%c14(%2), %%ecx \n\t"
++	"movl   %%ecx, 108(%%eax)\n\t"   
++
++	"movl	%c9(%2), %%eax	\n\t"  /* load new gs */	
++	"movl	%%eax, %%gs	\n\t"
++
++	"movl	%c12(%2), %%eax	\n\t"  /* load new gs */	
++	"movl	%%eax, %%fs	\n\t"    
++	
++	/*end of zoog patch*/
++
+ 
+ 	"jmp	*%%edx		\n\t"
+ 	"3:			\n\t"
+@@ -269,10 +349,19 @@
+ 	"i" (OFS_TCB_PDIR_CACHE),		// 6
+ 	"a" (dest->pdir_cache),			// 7
+ #if defined(CONFIG_CPU_X86_P4)
+-	"c" (this->pdir_cache)			// 8
++	"c" (this->pdir_cache),			// 8
+ #else
+-	"c" (dest->pdir_cache)			// dummy
++	"c" (dest->pdir_cache),			// dummy
+ #endif
++
++	/*ZOOG Patch*/
++	"i" (OFS_TCB_SAVE_GS),                  //9
++	"i" (OFS_TCB_SAVE_TLS_A),               //10
++	"i" (OFS_TCB_SAVE_TLS_B),                //11
++	"i" (OFS_TCB_SAVE_FS),                  //12
++	"i" (OFS_TCB_SAVE_FS_A),                //13
++	"i" (OFS_TCB_SAVE_FS_B)                 //14	
++
+ 	: "edx", "memory"
+ 	);
+     
+diff -N -u -r build/genode-11.11/base-pistachio/contrib/user/include/l4/ia32/vregs.h base-pistachio-new//contrib/user/include/l4/ia32/vregs.h
+--- build/genode-11.11/base-pistachio/contrib/user/include/l4/ia32/vregs.h	2011-12-27 17:36:07.000000000 -0800
++++ base-pistachio-new//contrib/user/include/l4/ia32/vregs.h	2011-12-27 17:12:46.000000000 -0800
+@@ -48,13 +48,18 @@
+ 
+     __asm__ __volatile__ (
+ 	"/* __L4_X86_Utcb() */			\n"
++	"	mov %%gs, %%eax\n"
++	"   mov $0x2b, %%ecx\n"
++	"	mov %%ecx, %%gs\n"
+ 	"	mov %%gs:0, %0			\n"
++	//"   mov $0x63, %%gs\n"
++	"	mov %%eax, %%gs\n"
+ 
+ 	: /* outputs */
+ 	"=r"(utcb)
+-
+-	/* no inputs */
+-	/* no clobbers */
++	: /* no inputs */
++	: /* clobbers */
++	"eax", "ecx"
+ 	);
+ 
+     return utcb;
+diff -N -u -r build/genode-11.11/base-pistachio/lib/mk/x86_segments.mk base-pistachio-new//lib/mk/x86_segments.mk
+--- build/genode-11.11/base-pistachio/lib/mk/x86_segments.mk	1969-12-31 16:00:00.000000000 -0800
++++ base-pistachio-new//lib/mk/x86_segments.mk	2011-12-26 22:11:18.000000000 -0800
+@@ -0,0 +1,3 @@
++SRC_CC = x86_segments.cc
++
++vpath %.cc $(REP_DIR)/src/base/x86_segments
+diff -N -u -r build/genode-11.11/base-pistachio/src/base/x86_segments/x86_segments.cc base-pistachio-new//src/base/x86_segments/x86_segments.cc
+--- build/genode-11.11/base-pistachio/src/base/x86_segments/x86_segments.cc	1969-12-31 16:00:00.000000000 -0800
++++ base-pistachio-new//src/base/x86_segments/x86_segments.cc	2011-12-27 17:25:41.000000000 -0800
+@@ -0,0 +1,47 @@
++/*
++ * \brief    sleazy x86_segments implementation for Pistachio
++ * \author   Jon Howell
++ * \date     2011.11.26
++ */
++
++#include <base/x86_segments.h>
++#include <base/printf.h>
++
++namespace Pistachio
++{
++#include <l4/types.h>
++#include <l4/thread.h>
++#include <l4/schedule.h>
++#include <l4/sigma0.h>
++#include <l4/kdebug.h>
++};
++
++using namespace Genode;
++using namespace Pistachio;
++
++void Set_x86_segments::platform_set_x86_segments(uint32_t fs, uint32_t gs)
++{
++	L4_ThreadId_t tid, ret, pager;
++	L4_Word_t control, sp, pc, flags, user;
++
++	control = 0;
++	tid = L4_nilthread;
++	ret = L4_nilthread;
++	pager = L4_nilthread;
++	// apply mysterious fake ioctl magic that Xi used to plumb this syscall
++	// down to kernel.
++	// TODO this is heinously double-evil. Create a new L4 system call,
++	// for the love of all that's holy!
++
++	sp = 0xfeedbeef;
++	pc = gs;
++	flags = fs;
++
++	tid = L4_Myself();
++	ret = L4_ExchangeRegisters( tid, control, sp, pc, flags, 0, pager, 
++				    &control, &sp, &pc, &flags, &user, 
++				    &pager );        
++
++	// more unholiness
++//	PDBG("bar!");
++}

@@ -1,0 +1,39 @@
+--- /tmp/main.c	2012-09-19 08:30:34.247810811 -0700
++++ build/source-files/midori-0.2.4/midori/main.c	2012-09-19 09:16:31.623814037 -0700
+@@ -367,6 +367,9 @@
+         return NULL;
+     }
+ 
++	int tries=0;
++	while (true)
++	{
+     if (sqlite3_exec (db,
+                       "CREATE TABLE IF NOT EXISTS "
+                       "history (uri text, title text, date integer, day integer);"
+@@ -377,7 +380,25 @@
+                       "CREATE TEMP VIEW search_view AS SELECT "
+                       "2 AS type, uri, keywords AS title, day FROM search;",
+                       NULL, NULL, errmsg) != SQLITE_OK)
+-        return NULL;
++	{
++		// failure.
++		// I don't know what causes the failure, but for some reason
++		// midori really freaks out (double-free) if it happens.
++		// so lets ... uh ... retry, then!
++        tries += 1;
++		if (tries > 2)
++		{
++			struct timespec ts = { .tv_sec=0, .tv_nsec=5000000 };	// 5ms
++			nanosleep(&ts, NULL);
++		}
++		if (tries>5)
++		{
++			int* x=NULL; (*x)+=1;	// assert(false)
++		}
++		continue;
++	}
++	break;
++	}
+ 
+     sqlite3_prepare_v2 (db, "SELECT day FROM history LIMIT 1", -1, &stmt, NULL);
+     result = sqlite3_step (stmt);

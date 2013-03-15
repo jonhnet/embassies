@@ -1,0 +1,11 @@
+--- /home/jonh/microsoft/genode/genode-11.11/base/lib/mk/cxx.mk	2011-11-28 07:15:34.000000000 -0800
++++ ./base/lib/mk/cxx.mk	2011-12-25 15:05:54.000000000 -0800
+@@ -6,7 +6,7 @@
+ #
+ # Here we define all symbols we want to hide in libsupc++ and libgcc_eh
+ #
+-LIBC_SYMBOLS += malloc free calloc realloc \
++LIBC_SYMBOLS += calloc realloc \
+                 abort fputc fputs fwrite \
+                 stderr strcat strcpy strlen \
+                 memcmp strncmp strcmp sprintf \

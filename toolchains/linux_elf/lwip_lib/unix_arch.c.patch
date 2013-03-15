@@ -1,0 +1,345 @@
+--- build-tmp/lwip_release_dir/contrib-1.4.0.rc2/ports/unix/sys_arch.c	2011-02-03 04:51:27.000000000 -0800
++++ build-tmp/lwip_build_dir/unix_arch.c	2012-02-25 21:32:43.000000000 -0800
+@@ -1,3 +1,5 @@
++// stripped down from ports/unix/sys_arch.c
++
+ /*
+  * Copyright (c) 2001-2003 Swedish Institute of Computer Science.
+  * All rights reserved. 
+@@ -57,6 +59,13 @@
+ #include "lwip/opt.h"
+ #include "lwip/stats.h"
+ 
++#include "xax_arch.h"
++#include "xaxif.h"
++
++extern XaxMachinery g_xm;
++	// TODO I really hate globals, but I don't want to replumb all of lwip
++	// to pass xdt around to all sem_new callsites just yet.
++
+ #define UMAX(a, b)      ((a) > (b) ? (a) : (b))
+ 
+ static struct timeval starttime;
+@@ -73,6 +82,12 @@
+ 
+ #define SYS_MBOX_SIZE 128
+ 
++struct sys_mbox;
++struct sys_mbox_zas {
++	ZAS zas;
++	struct sys_mbox *mbox;
++};
++
+ struct sys_mbox {
+   int first, last;
+   void *msgs[SYS_MBOX_SIZE];
+@@ -80,12 +95,7 @@
+   struct sys_sem *not_full;
+   struct sys_sem *mutex;
+   int wait_send;
+-};
+-
+-struct sys_sem {
+-  unsigned int c;
+-  pthread_cond_t cond;
+-  pthread_mutex_t mutex;
++  struct sys_mbox_zas mbox_zas;
+ };
+ 
+ struct sys_thread {
+@@ -99,11 +109,10 @@
+ static int lwprot_count = 0;
+ #endif /* SYS_LIGHTWEIGHT_PROT */
+ 
+-static struct sys_sem *sys_sem_new_internal(u8_t count);
+-static void sys_sem_free_internal(struct sys_sem *sem);
++/*-----------------------------------------------------------------------------------*/
+ 
+-static u32_t cond_wait(pthread_cond_t * cond, pthread_mutex_t * mutex,
+-                       u32_t timeout);
++void sys_mbox_zas_init(struct sys_mbox_zas *mbox_zas, struct sys_mbox *mbox);
++static bool mbox_zas_check(ZoogDispatchTable_v1 *zdt, ZAS *zas, ZutexWaitSpec *spec);
+ 
+ /*-----------------------------------------------------------------------------------*/
+ static struct sys_thread * 
+@@ -111,7 +120,10 @@
+ {
+   struct sys_thread *thread;
+ 
+-  thread = (struct sys_thread *)malloc(sizeof(struct sys_thread));
++  thread = (struct sys_thread *)
++  	cheesy_malloc(&g_xm.arena, sizeof(struct sys_thread));
++	// looks like threads are never freed in lwip. If I'm wrong,
++	// well, that'll need to change to a cheesy_free()
+ 
+   if (thread != NULL) {
+     pthread_mutex_lock(&threads_mutex);
+@@ -134,11 +146,18 @@
+   LWIP_UNUSED_ARG(stacksize);
+   LWIP_UNUSED_ARG(prio);
+ 
++  // use teensy stacks
++  pthread_attr_t attr;
++  pthread_attr_init(&attr);
++  pthread_attr_setstacksize(&attr, 128<<10);
++
+   code = pthread_create(&tmp,
+-                        NULL, 
++                        &attr, 
+                         (void *(*)(void *)) 
+                         function, 
+                         arg);
++  pthread_attr_destroy(&attr);
++  
+   
+   if (0 == code) {
+     st = introduce_thread(tmp);
+@@ -158,16 +177,21 @@
+   struct sys_mbox *mbox;
+   LWIP_UNUSED_ARG(size);
+ 
+-  mbox = (struct sys_mbox *)malloc(sizeof(struct sys_mbox));
++  mbox = (struct sys_mbox *)
++  	cheesy_malloc(&g_xm.arena, sizeof(struct sys_mbox));
+   if (mbox == NULL) {
+     return ERR_MEM;
+   }
+   mbox->first = mbox->last = 0;
+-  mbox->not_empty = sys_sem_new_internal(0);
+-  mbox->not_full = sys_sem_new_internal(0);
+-  mbox->mutex = sys_sem_new_internal(1);
++  mbox->not_empty = sys_sem_new_internal(&g_xm, 0);
++  mbox->not_full = sys_sem_new_internal(&g_xm, 0);
++  mbox->mutex = sys_sem_new_internal(&g_xm, 1);
++  mbox->mutex->verbose = false;
++  mbox->not_empty->verbose = false;
+   mbox->wait_send = 0;
+ 
++	sys_mbox_zas_init(&mbox->mbox_zas, mbox);
++
+   SYS_STATS_INC_USED(mbox);
+   *mb = mbox;
+   return ERR_OK;
+@@ -186,7 +210,7 @@
+     sys_sem_free_internal(mbox->mutex);
+     mbox->not_empty = mbox->not_full = mbox->mutex = NULL;
+     /*  LWIP_DEBUGF("sys_mbox_free: mbox 0x%lx\n", mbox); */
+-    free(mbox);
++    cheesy_free(mbox);
+   }
+ }
+ /*-----------------------------------------------------------------------------------*/
+@@ -345,136 +369,6 @@
+ 
+   return time_needed;
+ }
+-/*-----------------------------------------------------------------------------------*/
+-static struct sys_sem *
+-sys_sem_new_internal(u8_t count)
+-{
+-  struct sys_sem *sem;
+-
+-  sem = (struct sys_sem *)malloc(sizeof(struct sys_sem));
+-  if (sem != NULL) {
+-    sem->c = count;
+-    pthread_cond_init(&(sem->cond), NULL);
+-    pthread_mutex_init(&(sem->mutex), NULL);
+-  }
+-  return sem;
+-}
+-/*-----------------------------------------------------------------------------------*/
+-err_t
+-sys_sem_new(struct sys_sem **sem, u8_t count)
+-{
+-  SYS_STATS_INC_USED(sem);
+-  *sem = sys_sem_new_internal(count);
+-  if (*sem == NULL) {
+-    return ERR_MEM;
+-  }
+-  return ERR_OK;
+-}
+-/*-----------------------------------------------------------------------------------*/
+-static u32_t
+-cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex, u32_t timeout)
+-{
+-  int tdiff;
+-  unsigned long sec, usec;
+-  struct timeval rtime1, rtime2;
+-  struct timespec ts;
+-  int retval;
+-
+-  if (timeout > 0) {
+-    /* Get a timestamp and add the timeout value. */
+-    gettimeofday(&rtime1, NULL);
+-    sec = rtime1.tv_sec;
+-    usec = rtime1.tv_usec;
+-    usec += timeout % 1000 * 1000;
+-    sec += (int)(timeout / 1000) + (int)(usec / 1000000);
+-    usec = usec % 1000000;
+-    ts.tv_nsec = usec * 1000;
+-    ts.tv_sec = sec;
+-
+-    retval = pthread_cond_timedwait(cond, mutex, &ts);
+-
+-    if (retval == ETIMEDOUT) {
+-      return SYS_ARCH_TIMEOUT;
+-    } else {
+-      /* Calculate for how long we waited for the cond. */
+-      gettimeofday(&rtime2, NULL);
+-      tdiff = (rtime2.tv_sec - rtime1.tv_sec) * 1000 +
+-        (rtime2.tv_usec - rtime1.tv_usec) / 1000;
+-
+-      if (tdiff <= 0) {
+-        return 0;
+-      }
+-
+-      return tdiff;
+-    }
+-  } else {
+-    pthread_cond_wait(cond, mutex);
+-    return SYS_ARCH_TIMEOUT;
+-  }
+-}
+-/*-----------------------------------------------------------------------------------*/
+-u32_t
+-sys_arch_sem_wait(struct sys_sem **s, u32_t timeout)
+-{
+-  u32_t time_needed = 0;
+-  struct sys_sem *sem;
+-  LWIP_ASSERT("invalid sem", (s != NULL) && (*s != NULL));
+-  sem = *s;
+-
+-  pthread_mutex_lock(&(sem->mutex));
+-  while (sem->c <= 0) {
+-    if (timeout > 0) {
+-      time_needed = cond_wait(&(sem->cond), &(sem->mutex), timeout);
+-
+-      if (time_needed == SYS_ARCH_TIMEOUT) {
+-        pthread_mutex_unlock(&(sem->mutex));
+-        return SYS_ARCH_TIMEOUT;
+-      }
+-      /*      pthread_mutex_unlock(&(sem->mutex));
+-              return time_needed; */
+-    } else {
+-      cond_wait(&(sem->cond), &(sem->mutex), 0);
+-    }
+-  }
+-  sem->c--;
+-  pthread_mutex_unlock(&(sem->mutex));
+-  return time_needed;
+-}
+-/*-----------------------------------------------------------------------------------*/
+-void
+-sys_sem_signal(struct sys_sem **s)
+-{
+-  struct sys_sem *sem;
+-  LWIP_ASSERT("invalid sem", (s != NULL) && (*s != NULL));
+-  sem = *s;
+-
+-  pthread_mutex_lock(&(sem->mutex));
+-  sem->c++;
+-
+-  if (sem->c > 1) {
+-    sem->c = 1;
+-  }
+-
+-  pthread_cond_broadcast(&(sem->cond));
+-  pthread_mutex_unlock(&(sem->mutex));
+-}
+-/*-----------------------------------------------------------------------------------*/
+-static void
+-sys_sem_free_internal(struct sys_sem *sem)
+-{
+-  pthread_cond_destroy(&(sem->cond));
+-  pthread_mutex_destroy(&(sem->mutex));
+-  free(sem);
+-}
+-/*-----------------------------------------------------------------------------------*/
+-void
+-sys_sem_free(struct sys_sem **sem)
+-{
+-  if ((sem != NULL) && (*sem != SYS_SEM_NULL)) {
+-    SYS_STATS_DEC(sem.used);
+-    sys_sem_free_internal(*sem);
+-  }
+-}
+ #endif /* !NO_SYS */
+ /*-----------------------------------------------------------------------------------*/
+ u32_t
+@@ -582,6 +476,76 @@
+     return HZ * sec + usec;
+ }
+ 
++ZAS *sys_arch_get_mbox_zas(struct netconn *nconn)
++{
++	struct sys_mbox *mbox;
++	if (nconn->state == NETCONN_LISTEN)
++	{
++		mbox = nconn->acceptmbox;
++	}
++	else
++	{
++		mbox = nconn->recvmbox;
++	}
++	return &mbox->mbox_zas.zas;
++}
++
++ZASMethods3 sys_mbox_zas_method_table = {
++	NULL,
++	mbox_zas_check,
++	NULL,
++	NULL,
++};
++
++static bool mbox_zas_check(ZoogDispatchTable_v1 *zdt, ZAS *zas, ZutexWaitSpec *spec)
++{
++	struct sys_mbox_zas *mbox_zas = (struct sys_mbox_zas *)zas;
++	struct sys_mbox *mbox = mbox_zas->mbox;
++	
++	bool result;
++	
++	sys_arch_sem_wait(&mbox->mutex, 0);
++	
++	if (mbox->first != mbox->last)
++	{
++		// TODO Wait, we can't actually guarantee the read won't block
++		// if concurrent reads can happen. Oh, we have this problem
++		// elsewhere; so far, we have dealt with it by assuming consumers
++		// are single-threaded.
++		result = true;
++	}
++	else
++	{
++		// Do we need to lock the sem mutex? I shouldn't think so, since we've
++		// already locked the (outer) mbox mutex, and the sem only gets signaled
++		// with the mbox mutex held. So I guess the cond's mutex
++		// is a bit redundant, as used in this codebase. Hmm, usually the
++		// mutex is bundled in with the cond to avoid a race at wait time;
++		// not sure why that's not a problem here.
++		// Oh. It is a problem -- sys_arch_mbox_fetch releases the mbox mutex
++		// before waiting on the cond (which is a race-proof ifc).
++		// If data arrives in there, it'll signal the cond, which won't get
++		// lost.
++		// This isn't a problem for us, since we're not blocking -- we hold
++		// the mbox mutex while recording the cond's zutex value, so we know
++		// the cond won't get signaled until we let go of the mbox mutex,
++		// in which case we'll see the zutex value has changed.
++
++		spec->zutex = &mbox->not_empty->zcond.seq_zutex;
++		spec->match_val = mbox->not_empty->zcond.seq_zutex;
++		result = false;
++	}
++
++	sys_sem_signal(&mbox->mutex);
++	return result;
++}
++
++void sys_mbox_zas_init(struct sys_mbox_zas *mbox_zas, struct sys_mbox *mbox)
++{
++	mbox_zas->zas.method_table = &sys_mbox_zas_method_table;
++	mbox_zas->mbox = mbox;
++}
++
+ #if PPP_DEBUG
+ 
+ #include <stdarg.h>

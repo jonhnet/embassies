@@ -1,0 +1,12 @@
+--- Makefile.old	2011-03-01 00:24:52.000000000 -0800
++++ Makefile	2011-03-01 00:24:56.000000000 -0800
+@@ -553,7 +553,8 @@
+ 	$(platform_ldflags) \
+ 	--no-undefined      \
+ 	-avoid-version      \
+-	-export-dynamic
++	-export-dynamic \
++	-pie
+ 
+ abiword_LDADD = \
+ 	libabiword-2.8.la \

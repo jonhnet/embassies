@@ -1,0 +1,16 @@
+*** instructions rotted; use scripts/create_vendor.pl instead ***
+
+This directory contains stable key pairs. In production, of course,
+one wouldn't publish key pairs as source code, but this makes development
+testing easy.
+
+I created the sample vendor keys with:
+
+../build/crypto_util --genkeys vendor-a.keys --name vendor-a
+../build/crypto_util --genkeys vendor-b.keys --name vendor-b
+../build/crypto_util --genkeys zftp-zoog.keys --name zftp-zoog
+	// NB _'s become -'s in vendor names, because DNS doesn't allow '_'.
+
+I didn't automate this, because these are static, well-known
+keys. If we automate, we want to also automate the creation of certs.
+These keys have hand-generated certs in ../certs.

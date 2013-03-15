@@ -1,0 +1,44 @@
+--- patched/sha2small.c	2012-08-10 11:17:21.648067722 -0700
++++ ../crypto/sha2small.c	2012-04-03 13:22:01.145066556 -0700
+@@ -30,10 +30,11 @@
+  * @author   Thomas Pornin <thomas.pornin@cryptolog.com>
+  */
+ 
+-#include <stddef.h>
+-#include <string.h>
++//#include <stddef.h>
++//#include <string.h>
++#include "LiteLib.h"
+ 
+-#include "sph_sha2.h"
++#include "sha2.h"
+ 
+ #if SPH_SMALL_FOOTPRINT && !defined SPH_SMALL_FOOTPRINT_SHA2
+ #define SPH_SMALL_FOOTPRINT_SHA2   1
+@@ -620,7 +621,7 @@
+ 	sph_sha224_context *sc;
+ 
+ 	sc = cc;
+-	memcpy(sc->val, H224, sizeof H224);
++	lite_memcpy(sc->val, H224, sizeof H224);
+ #if SPH_64
+ 	sc->count = 0;
+ #else
+@@ -635,7 +636,7 @@
+ 	sph_sha256_context *sc;
+ 
+ 	sc = cc;
+-	memcpy(sc->val, H256, sizeof H256);
++	lite_memcpy(sc->val, H256, sizeof H256);
+ #if SPH_64
+ 	sc->count = 0;
+ #else
+@@ -646,7 +647,7 @@
+ #define RFUN   sha2_round
+ #define HASH   sha224
+ #define BE32   1
+-#include "md_helper.c"
++#include "sha2_helper.c.inc"
+ 
+ /* see sph_sha2.h */
+ void

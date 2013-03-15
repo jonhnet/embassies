@@ -1,0 +1,59 @@
+Basic porting instructions:
+
+Generally, libraries just work.
+But *everything* needs to be PIC, and by default, most final executables
+are built position-dependent. A position-independent executable can be
+had with a single link-step flag (-pie), but we can't get there from a
+completely-linked binary.
+
+These steps will help generate a -pie version of an executable on the system.
+It'll also be -g, because I like debugging and hate performance. :v)
+
+1. Find out which package owns the final executable that needs pie-ing:
+	dpkg -S `which xeyes`
+	x11-apps: /usr/bin/xeyes
+
+2. make a build dir for it.
+	cd linux_elf/apps/
+	svn mkdir x11-apps
+	svn cp inkscape/makefile x11-apps/makefile
+	cd x11-apps
+
+3. Correct the makefile's PACKAGE_NAME variable to point at the debian
+package name learned in step 1.
+	vim makefile
+	PACKAGE_NAME=x11-apps
+
+4. Build the package to see where the desired executable ends up.
+This make will fail, because it won't complete the final steps of
+extracting the binary.
+	make
+
+5. Grovel around in the build tree to find the executable you want.
+	find build -name xeyes -type f | xargs file -L
+Select the one you want.
+Verify it's really PIE by looking for a page-0 virtual load address:
+	readelf --headers build/source-files/...
+	Program Headers:
+	  Type           Offset   VirtAddr   PhysAddr   FileSiz MemSiz  Flg Align
+	  PHDR           0x000034 0x00000034 0x00000034 0x000e0 0x000e0 R E 0x4
+
+6. Correct the rest of makefile's variables:
+Set BUILT_PIE to the path to the built executable. Use a wildcard
+to insulate against version number variation.
+	BUILT_PIE=build/source-files/x11-apps-*/xeyes-build/xeyes
+
+Set PIE_NAME to the name you want the extracted executable to have.
+	PIE_NAME=xeyes-pie
+
+Note that the makefile does more than copy BUILT_PIE to build/PIE_NAME;
+it also needs to run strip_init to work around a bug in ld.so that only
+zoog tickles.
+
+7. 'make' again to get your executable.
+
+8. Link it into lib_links for testing.
+	cd ../../lib_links
+	ln -s ../apps/x11-apps/build/xeyes-pie .
+
+9. If something broke along the way, check build/source-files/build.log

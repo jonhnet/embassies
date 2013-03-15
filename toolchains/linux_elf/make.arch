@@ -1,0 +1,14 @@
+UNAMEM=$(shell uname -m)
+
+ifeq ($(UNAMEM),i686)
+STATIC_WORD_SIZE=32
+ARCH=i386
+else
+ifeq ($(UNAMEM),x64)
+STATIC_WORD_SIZE=64
+ARCH=x64
+else
+now:
+	echo error UNAMEM $(UNAMEM) undefined
+endif
+endif

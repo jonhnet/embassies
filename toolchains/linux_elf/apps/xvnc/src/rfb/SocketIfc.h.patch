@@ -1,0 +1,18 @@
+--- build-virgin/source-files/vnc4-4.1.1+X4.3.0/common/rfb/SocketIfc.h	1969-12-31 16:00:00.000000000 -0800
++++ build/source-files/vnc4-4.1.1+X4.3.0/common/rfb/SocketIfc.h	2011-12-11 15:16:49.000000000 -0800
+@@ -0,0 +1,15 @@
++#pragma once
++
++#include <rfb/Region.h>
++#include <rfb/Rect.h>
++#include <network/Socket.h>
++
++namespace rfb {
++  class SocketIfc {
++  public:
++  	virtual ~SocketIfc() {}
++
++    virtual network::Socket* getSock() = 0;
++    virtual void processMessages() = 0;
++  };
++}

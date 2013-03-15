@@ -1,0 +1,18 @@
+--- base/src/base/cxx/malloc_free.cc-old	2011-11-29 06:49:31.000000000 -0800
++++ base/src/base/cxx/malloc_free.cc	2011-12-28 11:12:04.000000000 -0800
+@@ -42,7 +42,6 @@
+ 	return (Block_header *)addr + 1;
+ }
+ 
+-
+ extern "C" void *calloc(unsigned nmemb, unsigned size)
+ {
+ 	void *addr = malloc(nmemb*size);
+@@ -90,3 +89,7 @@
+ 
+ 	return new_addr;
+ }
++
++extern "C" void *_private_malloc(unsigned size) { return malloc(size); }
++extern "C" void _private_free(void *ptr) { free(ptr); }
++

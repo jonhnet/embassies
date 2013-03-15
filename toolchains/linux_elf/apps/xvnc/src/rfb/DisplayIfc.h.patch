@@ -1,0 +1,30 @@
+--- build-virgin/source-files/vnc4-4.1.1+X4.3.0/common/rfb/DisplayIfc.h	1969-12-31 16:00:00.000000000 -0800
++++ build/source-files/vnc4-4.1.1+X4.3.0/common/rfb/DisplayIfc.h	2011-12-10 21:17:01.000000000 -0800
+@@ -0,0 +1,27 @@
++#pragma once
++
++#include <rfb/Region.h>
++#include <rfb/Rect.h>
++
++namespace rfb {
++  class DisplayIfc {
++  public:
++  	virtual ~DisplayIfc() {}
++    virtual void writeFramebufferUpdateOrClose() = 0;
++    virtual void pixelBufferChange() = 0;
++    virtual void add_changed(const Region& region) = 0;
++    virtual void add_copied(const Region& dest, const Point& delta) = 0;
++
++	virtual void immediate_add_changed(const Region& region) = 0;
++
++    virtual void setCursorOrClose() = 0;
++    virtual bool needRenderedCursor() = 0;
++    virtual void renderedCursorChange() = 0;
++    virtual bool readyForUpdate() = 0;
++
++    virtual void serverCutText(const char *str, int len) = 0;
++		// route out to a disaggregated protocol, perhaps
++    virtual void bell() = 0;
++		// route out to an audio protocol, perhaps
++  };
++}

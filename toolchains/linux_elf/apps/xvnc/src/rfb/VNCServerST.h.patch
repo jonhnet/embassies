@@ -1,0 +1,78 @@
+--- build-virgin/source-files/vnc4-4.1.1+X4.3.0/common/rfb/VNCServerST.h	2005-03-11 07:08:41.000000000 -0800
++++ build/source-files/vnc4-4.1.1+X4.3.0/common/rfb/VNCServerST.h	2012-03-11 15:48:09.000000000 -0700
+@@ -32,6 +32,8 @@
+ #include <rfb/Blacklist.h>
+ #include <rfb/Cursor.h>
+ #include <network/Socket.h>
++#include <rfb/DisplayIfc.h>
++#include <rfb/SocketIfc.h>
+ 
+ namespace rfb {
+ 
+@@ -39,6 +41,7 @@
+   class ComparingUpdateTracker;
+   class PixelBuffer;
+   class KeyRemapper;
++  class ZoogCanvasController;
+ 
+   class VNCServerST : public VNCServer, public network::SocketServer {
+   public:
+@@ -105,7 +108,7 @@
+ 
+     void getSockets(std::list<network::Socket*>* sockets);
+ 
+-    // getSConnection() gets the SConnection for a particular Socket.  If
++    // getSConnection() gets the SocketIfc for a particular Socket.  If
+     // the Socket is not recognised then null is returned.
+ 
+     SConnection* getSConnection(network::Socket* sock);
+@@ -180,6 +183,19 @@
+     // NB: A null pointer is valid here.
+     void setKeyRemapper(KeyRemapper* kr) { keyRemapper = kr; }
+ 
++
++	void add_client(VNCSConnectionST *client);
++	void remove_client(VNCSConnectionST *client);
++	void add_zoog_display(DisplayIfc *display, SocketIfc *socket);
++	void add_socket(SocketIfc *socket);
++
++	// Exposing interfaces to VNCZoogDisplay explicitly, rather
++	// that friending it (like VNC did with VNCSConnectionST).
++	Rect get_pixel_buffer_rect() { return pb->getRect(); }
++	PixelBuffer *get_pixel_buffer() { return pb; }
++    void checkUpdate();
++    SDesktop* get_desktop() { return desktop; };
++
+   protected:
+ 
+     friend class VNCSConnectionST;
+@@ -196,7 +212,12 @@
+ 
+     CharArray name;
+ 
+-    std::list<VNCSConnectionST*> clients;
++    std::list<VNCSConnectionST*> _clients;
++    std::list<DisplayIfc*> _displays;
++    std::list<SocketIfc*> _sockets;
++		// VNCSConnectionSTs go on both lists;
++		// VNCZoogDisplays go on only the 'displays' list.
++		// No socket to manage. Um, yet.
+     VNCSConnectionST* pointerClient;
+     std::list<network::Socket*> closingSockets;
+ 
+@@ -213,12 +234,14 @@
+     int authClientCount();
+ 
+     bool needRenderedCursor();
+-    void checkUpdate();
+ 
+     SSecurityFactory* securityFactory;
+     QueryConnectionHandler* queryConnectionHandler;
+     KeyRemapper* keyRemapper;
+     bool useEconomicTranslate;
++
++    ZoogCanvasController* canvas_controller;
++		// stored here in the object provide a path to it in the debugger
+   };
+ 
+ };

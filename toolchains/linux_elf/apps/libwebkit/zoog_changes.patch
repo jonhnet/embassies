@@ -1,0 +1,1353 @@
+--- build-reference/source-files/webkit-1.2.7/debian/rules	2011-12-08 15:39:42.000000000 -0800
++++ build/source-files/webkit-1.2.7/debian/rules	2012-04-24 17:31:50.751734541 -0700
+@@ -54,7 +54,8 @@
+ 		--host=$(DEB_HOST_GNU_TYPE) \
+ 		--build=$(DEB_BUILD_GNU_TYPE) \
+ 		--enable-gtk-doc \
+-		--enable-introspection
++		--enable-introspection \
++		--disable-optimizations
+ 
+ 	$(MAKE) $(MAKEARGUMENTS) -C build
+ 
+diff -x tags -x navigation_module -x common -x crypto -x ifc -x utils -x zoog_root.h -rNu build-reference/source-files/webkit-1.2.7/WebCore/GNUmakefile.am build/source-files/webkit-1.2.7/WebCore/GNUmakefile.am
+--- build-reference/source-files/webkit-1.2.7/WebCore/GNUmakefile.am	2010-09-10 06:20:32.000000000 -0700
++++ build/source-files/webkit-1.2.7/WebCore/GNUmakefile.am	2012-04-28 20:57:53.445256546 -0700
+@@ -60,7 +60,23 @@
+ 	-I$(srcdir)/WebCore/workers \
+ 	-I$(srcdir)/WebCore/xml \
+ 	-I$(top_builddir)/WebCore/bindings/js \
+-	-DDATA_DIR=\"${datadir}\"
++	-I$(srcdir)/WebCore/zoog \
++	-I$(srcdir)/WebCore/zoog/common \
++	-I$(srcdir)/WebCore/zoog/navigation_module \
++	-I$(srcdir)/WebCore/zoog/ifc \
++	-I$(srcdir)/WebCore/zoog/utils \
++	-I$(srcdir)/WebCore/zoog/crypto \
++	-DDATA_DIR=\"${datadir}\" \
++	-DNOEXCEPTIONS \
++	-DSPH_BIG_ENDIAN=0 \
++	-DSPH_AMD64_GCC=0 \
++	-DSPH_SPARCV9_GCC=0 \
++	-DSPH_NO_ASM=0 \
++	-DSPH_NO_64=0 \
++	-DMIPSEB=0 -D_MIPSEB=0 -D__MIPSEB=0 -D__MIPSEB__=0 \
++	-DMIPSEL=0 -D_MIPSEL=0 -D__MIPSEL=0 -D__MIPSEL__=0 \
++	-DZOOG_NO_STANDARD_INCLUDES=0 \
++	-D__STDC_VERSION__=0
+ 
+ webcoregtk_cppflags += \
+ 	-DWTF_USE_SOUP=1 \
+@@ -302,8 +318,57 @@
+ 	WebCore/xml/XSLTProcessor.idl
+ 
+ webcore_sources += \
++	WebCore/zoog/common/xax_extensions.c \
++	WebCore/zoog/common/xax_extensions.h \
++	WebCore/zoog/common/XvncControlProtocol.cpp \
++	WebCore/zoog/common/AppIdentity.cpp \
++	WebCore/zoog/common/SyncFactory_Pthreads.cpp \
++	WebCore/zoog/common/TabIconPainter.cpp \
++	WebCore/zoog/navigation_module/NavigationBlob.cpp \
++	WebCore/zoog/navigation_module/NavigationProtocol.cpp \
++	WebCore/zoog/navigation_module/NavMgr.cpp \
++	WebCore/zoog/navigation_module/NavSocket.cpp \
++	WebCore/zoog/navigation_module/NavInstance.cpp \
++	WebCore/zoog/navigation_module/AckWait.cpp \
++	WebCore/zoog/crypto/bignum.cpp \
++	WebCore/zoog/crypto/rijndael.c \
++	WebCore/zoog/crypto/rsa.cpp \
++	WebCore/zoog/crypto/sha2big.c \
++	WebCore/zoog/crypto/sha2small.c \
++	WebCore/zoog/crypto/vmac.c \
++	WebCore/zoog/crypto/ByteStream.cpp \
++	WebCore/zoog/crypto/CryptoException.cpp \
++	WebCore/zoog/crypto/DomainName.cpp \
++	WebCore/zoog/crypto/ZBinaryRecord.cpp \
++	WebCore/zoog/crypto/ZCert.cpp \
++	WebCore/zoog/crypto/ZCertChain.cpp \
++	WebCore/zoog/crypto/ZDelegationRecord.cpp \
++	WebCore/zoog/crypto/ZKey.cpp \
++	WebCore/zoog/crypto/ZKeyLinkRecord.cpp \
++	WebCore/zoog/crypto/ZKeyPair.cpp \
++	WebCore/zoog/crypto/ZPrivKey.cpp \
++	WebCore/zoog/crypto/ZPubKey.cpp \
++	WebCore/zoog/crypto/ZPubKeyRecord.cpp \
++	WebCore/zoog/crypto/ZRecord.cpp \
++	WebCore/zoog/crypto/ZSigRecord.cpp \
++	WebCore/zoog/crypto/crypto.cpp \
++	WebCore/zoog/crypto/timer.cpp \
++	WebCore/zoog/crypto/time_posix.cpp \
++	WebCore/zoog/crypto/RandomSupply.cpp \
++	WebCore/zoog/utils/LiteLib.c \
++	WebCore/zoog/utils/ZRectangle.cpp \
++	WebCore/zoog/utils/xax_network_utils.c \
++	WebCore/zoog/utils/cheesy_snprintf.c \
++	WebCore/zoog/utils/hash_table.c \
++	WebCore/zoog/utils/linked_list.c \
++	WebCore/zoog/utils/standard_malloc_factory.c \
++	WebCore/zoog/utils/hash_to_hex.c \
++	WebCore/zoog/ZoogAppServer.cpp \
++	WebCore/zoog/ZoogAppClient.cpp \
++	WebCore/zoog/ZoogView.cpp \
++	WebCore/zoog/ZoogDeps.cpp \
+ 	WebCore/WebCorePrefix.h \
+-        WebCore/accessibility/AXObjectCache.cpp \
++	WebCore/accessibility/AXObjectCache.cpp \
+ 	WebCore/accessibility/AXObjectCache.h \
+ 	WebCore/accessibility/AccessibilityARIAGrid.cpp \
+ 	WebCore/accessibility/AccessibilityARIAGrid.h \
+diff -x tags -x navigation_module -x common -x crypto -x ifc -x utils -x zoog_root.h -rNu build-reference/source-files/webkit-1.2.7/WebCore/html/HTMLIFrameElement.cpp build/source-files/webkit-1.2.7/WebCore/html/HTMLIFrameElement.cpp
+--- build-reference/source-files/webkit-1.2.7/WebCore/html/HTMLIFrameElement.cpp	2010-09-10 06:20:33.000000000 -0700
++++ build/source-files/webkit-1.2.7/WebCore/html/HTMLIFrameElement.cpp	2012-04-24 17:31:50.759734581 -0700
+@@ -31,13 +31,15 @@
+ #include "HTMLNames.h"
+ #include "MappedAttribute.h"
+ #include "RenderPartObject.h"
++#include "ZoogView.h"
+ 
+ namespace WebCore {
+ 
+ using namespace HTMLNames;
+ 
+ inline HTMLIFrameElement::HTMLIFrameElement(const QualifiedName& tagName, Document* document)
+-    : HTMLFrameElementBase(tagName, document)
++    : HTMLElement(tagName, document)
++	, zoogView(NULL)
+ {
+     ASSERT(hasTagName(iframeTag));
+ }
+@@ -64,7 +66,7 @@
+         return false;
+     }
+ 
+-    return HTMLFrameElementBase::mapToEntry(attrName, result);
++    return HTMLElement::mapToEntry(attrName, result);
+ }
+ 
+ #if ENABLE(SANDBOX)
+@@ -105,7 +107,11 @@
+ 
+ void HTMLIFrameElement::parseMappedAttribute(MappedAttribute* attr)
+ {
+-    if (attr->name() == widthAttr)
++    if (attr->name() == srcAttr)
++	{
++		m_url = AtomicString(deprecatedParseURL(attr->value()));
++	}
++    else if (attr->name() == widthAttr)
+         addCSSLength(attr, CSSPropertyWidth, attr->value());
+     else if (attr->name() == heightAttr)
+         addCSSLength(attr, CSSPropertyHeight, attr->value());
+@@ -131,12 +137,12 @@
+         setSandboxFlags(parseSandboxAttribute(attr));
+ #endif
+     else
+-        HTMLFrameElementBase::parseMappedAttribute(attr);
++        HTMLElement::parseMappedAttribute(attr);
+ }
+ 
+ bool HTMLIFrameElement::rendererIsNeeded(RenderStyle* style)
+ {
+-    return isURLAllowed() && style->display() != NONE;
++    return /* isURLAllowed() && */ style->display() != NONE;
+ }
+ 
+ RenderObject* HTMLIFrameElement::createRenderer(RenderArena* arena, RenderStyle*)
+@@ -149,7 +155,7 @@
+     if (document()->isHTMLDocument())
+         static_cast<HTMLDocument*>(document())->addExtraNamedItem(m_name);
+ 
+-    HTMLFrameElementBase::insertedIntoDocument();
++    HTMLElement::insertedIntoDocument();
+ }
+ 
+ void HTMLIFrameElement::removedFromDocument()
+@@ -157,7 +163,7 @@
+     if (document()->isHTMLDocument())
+         static_cast<HTMLDocument*>(document())->removeExtraNamedItem(m_name);
+ 
+-    HTMLFrameElementBase::removedFromDocument();
++    HTMLElement::removedFromDocument();
+ }
+ 
+ bool HTMLIFrameElement::isURLAttribute(Attribute* attr) const
+@@ -165,4 +171,18 @@
+     return attr->name() == srcAttr;
+ }
+ 
++void HTMLIFrameElement::attach()
++{
++	HTMLElement::attach();
++	RenderPart *renderPart = toRenderPart(renderer());
++	if (renderPart!=NULL)
++	{
++		if (zoogView == NULL)
++		{
++			zoogView = new ZoogView(m_url);
++		}
++		renderPart->setWidget(zoogView);
++	}
++}
++
+ }
+diff -x tags -x navigation_module -x common -x crypto -x ifc -x utils -x zoog_root.h -rNu build-reference/source-files/webkit-1.2.7/WebCore/html/HTMLIFrameElement.h build/source-files/webkit-1.2.7/WebCore/html/HTMLIFrameElement.h
+--- build-reference/source-files/webkit-1.2.7/WebCore/html/HTMLIFrameElement.h	2010-09-10 06:20:33.000000000 -0700
++++ build/source-files/webkit-1.2.7/WebCore/html/HTMLIFrameElement.h	2012-04-24 17:31:50.759734581 -0700
+@@ -25,13 +25,37 @@
+ #define HTMLIFrameElement_h
+ 
+ #include "HTMLFrameElementBase.h"
++#if ENABLE(SVG)
++#include "ExceptionCode.h"
++#include "SVGDocument.h"
++#endif
+ 
+ namespace WebCore {
+ 
+-class HTMLIFrameElement : public HTMLFrameElementBase {
++class ZoogView;
++
++class HTMLIFrameElement
++	/* : public HTMLFrameElementBase */
++	: public HTMLElement {
+ public:
+     static PassRefPtr<HTMLIFrameElement> create(const QualifiedName&, Document*);
+ 
++	// jonh hackery to stub out things that frame-y iframe used to do.
++    Frame* contentFrame() const { return NULL; }
++    Document* contentDocument() const { return NULL; }
++	DOMWindow* contentWindow() const { return NULL; }
++	
++#if ENABLE(SVG)
++	SVGDocument* getSVGDocument(ExceptionCode& ec) const
++		{ ec = NOT_SUPPORTED_ERR; return 0; }
++#endif
++	
++	void setRemainsAliveOnRemovalFromTree(bool) {}
++	int getMarginWidth() const { return 0; }
++	int getMarginHeight() const { return 0; }
++
++	virtual void attach();
++
+ private:
+     HTMLIFrameElement(const QualifiedName&, Document*);
+ 
+@@ -50,6 +74,8 @@
+     virtual bool isURLAttribute(Attribute*) const;
+ 
+     AtomicString m_name;
++	AtomicString m_url;
++	ZoogView *zoogView;
+ };
+ 
+ } // namespace WebCore
+diff -x tags -x navigation_module -x common -x crypto -x ifc -x utils -x zoog_root.h -rNu build-reference/source-files/webkit-1.2.7/WebCore/loader/FrameLoader.cpp build/source-files/webkit-1.2.7/WebCore/loader/FrameLoader.cpp
+--- build-reference/source-files/webkit-1.2.7/WebCore/loader/FrameLoader.cpp	2010-12-28 04:24:33.000000000 -0800
++++ build/source-files/webkit-1.2.7/WebCore/loader/FrameLoader.cpp	2012-04-28 21:33:33.083716721 -0700
+@@ -117,6 +117,12 @@
+ #include "SVGViewSpec.h"
+ #endif
+ 
++// TODO Including ZoogAppClient.h in FrameLoader.h seems
++// to break the WebCore build in a weird way. Since the
++// ZoogAppClient doesn't currently hold state there is
++// no real reason to force it into the class properties
++#include "ZoogAppClient.h"
++
+ namespace WebCore {
+ 
+ #if ENABLE(SVG)
+@@ -1869,44 +1875,67 @@
+ {    
+     KURL url = request.resourceRequest().url();
+ 
+-    String referrer;
+-    String argsReferrer = request.resourceRequest().httpReferrer();
+-    if (!argsReferrer.isEmpty())
+-        referrer = argsReferrer;
+-    else
+-        referrer = m_outgoingReferrer;
+-
+-    ASSERT(frame()->document());
+-    if (SecurityOrigin::shouldTreatURLAsLocal(url.string()) && !isFeedWithNestedProtocolInHTTPFamily(url)) {
+-        if (!SecurityOrigin::canLoad(url, String(), frame()->document()) && !SecurityOrigin::canLoad(url, referrer, 0)) {
+-            FrameLoader::reportLocalLoadFailed(m_frame, url.string());
+-            return;
++    //-----------
++    // START ZOOG
++    //-----------
++    if (url.string().startsWith("zoog:", false))
++    {
++        KURL strippedUrl(ParsedURLString, url.string().substring(5));
++
++		ZoogAppServer* zas = frame()->get_ZoogAppServer();
++		zas->transfer(
++            strippedUrl.protocol().utf8().data(),
++            strippedUrl.host().utf8().data(), 
++            strippedUrl.path().substring(1).utf8().data());
++
++        return;
++	} else if (url.string().startsWith("back:", false)) {
++		ZoogAppServer* zas = frame()->get_ZoogAppServer();
++		zas->transfer_back();
++    } else {
++    //---------
++    // END ZOOG
++    //---------
++
++        String referrer;
++        String argsReferrer = request.resourceRequest().httpReferrer();
++        if (!argsReferrer.isEmpty())
++            referrer = argsReferrer;
++        else
++            referrer = m_outgoingReferrer;
++    
++        ASSERT(frame()->document());
++        if (SecurityOrigin::shouldTreatURLAsLocal(url.string()) && !isFeedWithNestedProtocolInHTTPFamily(url)) {
++            if (!SecurityOrigin::canLoad(url, String(), frame()->document()) && !SecurityOrigin::canLoad(url, referrer, 0)) {
++                FrameLoader::reportLocalLoadFailed(m_frame, url.string());
++                return;
++            }
+         }
+-    }
+-
+-    if (SecurityOrigin::shouldHideReferrer(url, referrer) || referrerPolicy == NoReferrer)
+-        referrer = String();
+     
+-    FrameLoadType loadType;
+-    if (request.resourceRequest().cachePolicy() == ReloadIgnoringCacheData)
+-        loadType = FrameLoadTypeReload;
+-    else if (lockBackForwardList)
+-        loadType = FrameLoadTypeRedirectWithLockedBackForwardList;
+-    else
+-        loadType = FrameLoadTypeStandard;
+-
+-    if (request.resourceRequest().httpMethod() == "POST")
+-        loadPostRequest(request.resourceRequest(), referrer, request.frameName(), lockHistory, loadType, event, formState.get());
+-    else
+-        loadURL(request.resourceRequest().url(), referrer, request.frameName(), lockHistory, loadType, event, formState.get());
+-
+-    // FIXME: It's possible this targetFrame will not be the same frame that was targeted by the actual
+-    // load if frame names have changed.
+-    Frame* sourceFrame = formState ? formState->sourceFrame() : m_frame;
+-    Frame* targetFrame = sourceFrame->loader()->findFrameForNavigation(request.frameName());
+-    if (targetFrame && targetFrame != sourceFrame) {
+-        if (Page* page = targetFrame->page())
+-            page->chrome()->focus();
++        if (SecurityOrigin::shouldHideReferrer(url, referrer) || referrerPolicy == NoReferrer)
++            referrer = String();
++        
++        FrameLoadType loadType;
++        if (request.resourceRequest().cachePolicy() == ReloadIgnoringCacheData)
++            loadType = FrameLoadTypeReload;
++        else if (lockBackForwardList)
++            loadType = FrameLoadTypeRedirectWithLockedBackForwardList;
++        else
++            loadType = FrameLoadTypeStandard;
++    
++        if (request.resourceRequest().httpMethod() == "POST")
++            loadPostRequest(request.resourceRequest(), referrer, request.frameName(), lockHistory, loadType, event, formState.get());
++        else
++            loadURL(request.resourceRequest().url(), referrer, request.frameName(), lockHistory, loadType, event, formState.get());
++    
++        // FIXME: It's possible this targetFrame will not be the same frame that was targeted by the actual
++        // load if frame names have changed.
++        Frame* sourceFrame = formState ? formState->sourceFrame() : m_frame;
++        Frame* targetFrame = sourceFrame->loader()->findFrameForNavigation(request.frameName());
++        if (targetFrame && targetFrame != sourceFrame) {
++            if (Page* page = targetFrame->page())
++                page->chrome()->focus();
++        }
+     }
+ }
+ 
+diff -x tags -x navigation_module -x common -x crypto -x ifc -x utils -x zoog_root.h -rNu build-reference/source-files/webkit-1.2.7/WebCore/loader/FrameLoader.h build/source-files/webkit-1.2.7/WebCore/loader/FrameLoader.h
+--- build-reference/source-files/webkit-1.2.7/WebCore/loader/FrameLoader.h	2010-09-10 06:20:33.000000000 -0700
++++ build/source-files/webkit-1.2.7/WebCore/loader/FrameLoader.h	2012-04-24 17:31:50.763734598 -0700
+@@ -43,6 +43,8 @@
+ #include "Timer.h"
+ #include <wtf/Forward.h>
+ 
++
++
+ namespace WebCore {
+ 
+ class Archive;
+diff -x tags -x navigation_module -x common -x crypto -x ifc -x utils -x zoog_root.h -rNu build-reference/source-files/webkit-1.2.7/WebCore/page/Frame.cpp build/source-files/webkit-1.2.7/WebCore/page/Frame.cpp
+--- build-reference/source-files/webkit-1.2.7/WebCore/page/Frame.cpp	2010-09-10 06:20:33.000000000 -0700
++++ build/source-files/webkit-1.2.7/WebCore/page/Frame.cpp	2012-04-24 17:31:50.767734625 -0700
+@@ -26,6 +26,11 @@
+  * Boston, MA 02110-1301, USA.
+  */
+ 
++#include <assert.h>
++#include <sys/types.h>
++#include <sys/socket.h>
++#include <sys/un.h>
++
+ #include "config.h"
+ #include "Frame.h"
+ 
+@@ -84,6 +89,11 @@
+ #include <wtf/RefCountedLeakCounter.h>
+ #include <wtf/StdLibExtras.h>
+ 
++// open, for ZoogSetEntryPointCallback
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <fcntl.h>
++
+ #if USE(JSC)
+ #include "JSDOMWindowShell.h"
+ #include "runtime_root.h"
+@@ -108,6 +118,9 @@
+ #include "TiledBackingStore.h"
+ #endif
+ 
++#include "ZoogAppServer.h"
++#include "XvncControlProtocol.h"
++
+ using namespace std;
+ 
+ namespace WebCore {
+@@ -118,6 +131,8 @@
+ static WTF::RefCountedLeakCounter frameCounter("Frame");
+ #endif
+ 
++ZoogAppServer *ZoogIpcServer = NULL;
++
+ static inline Frame* parentFromOwnerElement(HTMLFrameOwnerElement* ownerElement)
+ {
+     if (!ownerElement)
+@@ -220,9 +235,44 @@
+     ASSERT(!m_lifeSupportTimer.isActive());
+ }
+ 
++void Frame::ZoogSetEntryPointCallback_static(void* v_frame, const char *url)
++{
++	((Frame*) v_frame)->ZoogSetEntryPointCallback(url);
++}
++
++void Frame::ZoogSetEntryPointCallback(const char *url)
++{
++    m_doc->frame()->loader()->urlSelected(m_doc->completeURL(url), m_doc->baseTarget(), NULL, false, false, true, NoReferrer);
++
++#if 0 // dead code
++	if (entryPointMsg->explicit_viewport)
++	{
++		int rc;
++
++		// Call over to xvnc zone and ask it to accept the canvas and
++		// start drawing into it, por favor.
++		XCClient xcc;
++		xcc.change_viewport(tenant_viewport);
++	}
++#endif
++}
++
+ void Frame::init()
+ {
+     m_loader.init();
++
++    if (ZoogIpcServer == NULL)
++    {
++//        TheFrame = this;
++        ZoogIpcServer = new ZoogAppServer(ZoogSetEntryPointCallback_static, this);
++    }
++}
++
++ZoogAppServer* Frame::get_ZoogAppServer()
++{
++	// TODO jonh not sure why ZoogIpcServer is a static,
++	// not an object member, but...
++	return ZoogIpcServer;
+ }
+ 
+ FrameLoader* Frame::loader() const
+diff -x tags -x navigation_module -x common -x crypto -x ifc -x utils -x zoog_root.h -rNu build-reference/source-files/webkit-1.2.7/WebCore/page/Frame.h build/source-files/webkit-1.2.7/WebCore/page/Frame.h
+--- build-reference/source-files/webkit-1.2.7/WebCore/page/Frame.h	2010-09-10 06:20:33.000000000 -0700
++++ build/source-files/webkit-1.2.7/WebCore/page/Frame.h	2012-04-24 17:31:50.767734625 -0700
+@@ -48,6 +48,8 @@
+ #include "TiledBackingStoreClient.h"
+ #endif
+ 
++#include "pal_abi/pal_ui.h"
++
+ #if PLATFORM(MAC)
+ #ifndef __OBJC__
+ class NSArray;
+@@ -62,6 +64,10 @@
+ typedef struct HBITMAP__* HBITMAP;
+ #endif
+ 
++class SetEntryPointArgs;
++
++class ZoogAppServer;
++
+ namespace WebCore {
+ 
+     class CSSMutableStyleDeclaration;
+@@ -370,6 +376,11 @@
+ #if ENABLE(TILED_BACKING_STORE)        
+         OwnPtr<TiledBackingStore> m_tiledBackingStore;
+ #endif
++
++		static void ZoogSetEntryPointCallback_static(void* v_frame, const char *url);
++		void ZoogSetEntryPointCallback(const char *url);
++	public:
++		ZoogAppServer* get_ZoogAppServer();
+     };
+ 
+ } // namespace WebCore
+diff -x tags -x navigation_module -x common -x crypto -x ifc -x utils -x zoog_root.h -rNu build-reference/source-files/webkit-1.2.7/WebCore/page/FrameView.cpp build/source-files/webkit-1.2.7/WebCore/page/FrameView.cpp
+--- build-reference/source-files/webkit-1.2.7/WebCore/page/FrameView.cpp	2011-02-07 09:29:58.000000000 -0800
++++ build/source-files/webkit-1.2.7/WebCore/page/FrameView.cpp	2012-04-24 17:31:50.771734638 -0700
+@@ -1839,6 +1839,15 @@
+         paintBehavior |= PaintBehaviorFlattenCompositingLayers;
+ 
+     contentRenderer->layer()->paint(p, rect, paintBehavior, eltRenderer);
++
++	p->save();
++	p->setStrokeThickness(2.0);
++	p->setStrokeStyle(WebCore::SolidStroke);
++	p->setStrokeColor(Color(0xFF, 0, 0), p->strokeColorSpace());
++	p->drawLine(IntPoint(7,3), IntPoint(27,15));
++	p->drawLine(IntPoint(27,15), IntPoint(27,3));
++	p->drawLine(IntPoint(27,3), IntPoint(17,10));
++	p->restore();
+     
+     m_isPainting = false;
+     m_lastPaintTime = currentTime();
+diff -x tags -x navigation_module -x common -x crypto -x ifc -x utils -x zoog_root.h -rNu build-reference/source-files/webkit-1.2.7/WebCore/zoog/ZoogAppClient.cpp build/source-files/webkit-1.2.7/WebCore/zoog/ZoogAppClient.cpp
+--- build-reference/source-files/webkit-1.2.7/WebCore/zoog/ZoogAppClient.cpp	1969-12-31 16:00:00.000000000 -0800
++++ build/source-files/webkit-1.2.7/WebCore/zoog/ZoogAppClient.cpp	2012-04-24 17:31:50.771734638 -0700
+@@ -0,0 +1,344 @@
++#include <assert.h>
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <fcntl.h>
++#include <unistd.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <time.h>
++#include <errno.h>
++
++// Sockets
++#include <string.h>
++#include <sys/socket.h>
++#include <netdb.h>
++
++#include "ZoogAppClient.h"
++#include "ZCert.h"
++#include "zoog_root.h"
++
++#if 0
++/*------------------------------------------------------------------------------
++| Method: FindServer
++|
++| Purpose: Find a ZoogIpcServer server running in broadcast range of the client
++|   with the specified identity
++|
++| Parameters:
++|   serverIdentity      (IN)  - Identity of the server to find
++|   serverIdentity_len  (IN)  - Length of serverIdentity in bytes
++|   timeoutSeconds      (IN)  - Timeout in seconds to wait for an app to respond
++|   server_address      (OUT) - Socket address of the server found
++|   server_addres_len   (OUT) - Length of server_address in bytes
++|
++| Returns: none
++------------------------------------------------------------------------------*/
++void ZoogAppClient::FindServer(const uint8_t* serverIdentity, int serverIdentity_len, int timeoutSeconds, struct sockaddr* server_address, socklen_t &server_address_len)
++{
++    // Validate parameters
++    if (serverIdentity == NULL || serverIdentity_len <= 0)
++    {
++        assert(false);
++    }
++
++    if (server_address == NULL || server_address_len <= 0)
++    {
++        assert(false);
++    }
++
++    // Used to generates UIDs,
++    // TODO should be replaced with real GUID generator
++    srand(time(NULL));
++
++    // Create UDP socket 
++    int socketfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
++    if (socketfd < 0) 
++    {
++        assert(false);
++    }
++    
++    // Bind server to listen on any address port 50001
++    struct sockaddr_in client_address; 
++    memset((char *) &client_address, 0, sizeof(client_address));
++    client_address.sin_family = AF_INET;
++    client_address.sin_port = htons(ZoogAppServer::ClientListenPort);
++    client_address.sin_addr.s_addr = INADDR_ANY;
++
++    int bindReturn = bind(socketfd, (sockaddr*)&client_address, sizeof(client_address));
++    if (bindReturn < 0)
++    {
++        assert(false);
++    }
++    
++    // NOTE: LWIP does not currently support setsockopt(...,SO_BROADCAST,...)
++    // but we don't appear to need it for broadcast support here
++    
++    // Create broadcast address to use when looking for a launched application's Zoog App Server
++    struct sockaddr_in broadcastAddress;
++    broadcastAddress.sin_family = AF_INET;
++    broadcastAddress.sin_addr.s_addr = INADDR_BROADCAST;
++    broadcastAddress.sin_port = htons(ZoogAppServer::ServerListenPort);
++
++    // Construct Zoog IPC message to find server
++    int findServerUid = rand(); // TODO use randomly generated GUID
++    
++    int buffer_len = sizeof(ZoogAppServer::ZoogIpcMessage) + ZoogAppServer::NetworkBufferPayloadSize;
++    uint8_t* buffer = new uint8_t[buffer_len];
++    
++    ZoogAppServer::ZoogIpcMessage *ipcMessage = (ZoogAppServer::ZoogIpcMessage*)buffer;
++    ipcMessage->MagicNumber = ZoogAppServer::IpcMessageMagic;
++    ipcMessage->UID = findServerUid; 
++    ipcMessage->Type = ZoogAppServer::WHERE_IS;
++    ipcMessage->Length = serverIdentity_len;
++    
++    // Append server identity to the end of the buffer
++    memcpy(&buffer[0] + sizeof(ZoogAppServer::ZoogIpcMessage), serverIdentity, serverIdentity_len);
++        
++    
++    
++    // Use one second polling when looking for the Zoog App IPCserver
++    struct timeval stTimeOut; 
++    stTimeOut.tv_sec = 1; 
++    stTimeOut.tv_usec = 0;
++
++    fd_set stReadFDS;
++
++    bool keepGoing = true;
++
++    while (keepGoing)
++    {
++        // Send Zoog App IPC broadcast looking for launched app 
++        int send_message_len = sendto(socketfd, buffer, sizeof(*ipcMessage) + ipcMessage->Length, 0, (sockaddr*) &broadcastAddress, sizeof(broadcastAddress));
++        if (send_message_len != (int) sizeof(*ipcMessage) + ipcMessage->Length)
++        {
++			int errno_val = errno;
++			fprintf(stderr, "sendto failed with errno %d", errno_val);
++            lite_assert(false);
++        }
++        
++        FD_ZERO(&stReadFDS);
++        FD_SET(socketfd, &stReadFDS);
++        
++        // Wait for response from launched app or poll to timeout
++        int t = select(socketfd+1, &stReadFDS, NULL, NULL, &stTimeOut);
++        if (t < 0)
++        {
++            // Call to select(...) failed
++            assert(false);
++        }
++        else if (t > 0)
++        {
++            if (FD_ISSET(socketfd, &stReadFDS))
++            {
++                // Get the response from the launched app
++                int recv_message_len = recvfrom(socketfd, buffer, buffer_len, 0, server_address, &server_address_len);    
++                if (recv_message_len  < (int) sizeof(ZoogAppServer::ZoogIpcMessage)) 
++                {   
++                    // Message was too small, expecting a message of at least the size of an IPC message header
++                    assert(false);
++                }
++                keepGoing = false;
++            }
++        }
++        else // timeout occurred
++        {
++            if (--timeoutSeconds < 0)
++            {
++                // Completely timed-out waiting for launched app to respond
++                assert(false);
++            }
++
++            // Timeout still remains, resend broadcast 
++        }        
++    }
++
++    // close socket
++    close(socketfd);
++
++    // Validate message content
++    ipcMessage = (ZoogAppServer::ZoogIpcMessage*)buffer;
++    if (ipcMessage->MagicNumber != ZoogAppServer::IpcMessageMagic ||
++        ipcMessage->UID != findServerUid)
++    {
++        assert(false);
++    }
++
++    // Cleanup buffer
++    if (buffer != NULL)
++    {
++        delete buffer;
++        buffer = NULL;
++    }
++}
++    
++
++/*------------------------------------------------------------------------------
++| Method: SendEntryPoint
++|
++| Purpose: Send an entry-point to a Zoog application
++|
++| Parameters:
++|   serverIdentity      (IN) - Identity of the server to find
++|   serverIdentity_len  (IN) - Length of serverIdentity in bytes
++|   entryPoint          (IN) - Entrypoint to direct the server to
++|   entryPoint_len      (IN) - Length of entryPoint in bytes
++|
++| Returns: none
++------------------------------------------------------------------------------*/
++void ZoogAppClient::SendEntryPoint(const uint8_t* serverIdentity, int serverIdentity_len, const uint8_t* entryPoint, int entryPoint_len, bool explicit_viewport, Deed deed)
++{
++    // Find the server
++    struct sockaddr server_address;
++    socklen_t server_address_len = sizeof(server_address);
++ 
++    // TODO spin off in another thread to stop blocking the current application
++    FindServer(serverIdentity, serverIdentity_len, 600, &server_address, server_address_len); // Set to 10 minute timeout to account for the debug libwebkit load in midori
++
++    // Create socket 
++    int socketfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
++    if (socketfd < 0) 
++    {
++        assert(false);
++    }
++
++    // Send entry point
++    int sendEntryPointUid = rand(); // TODO use randomly generated GUID
++    int buffer_len = sizeof(ZoogAppServer::SetEntryPointIpc) + entryPoint_len;
++    uint8_t* buffer = new uint8_t[buffer_len];
++
++	ZoogAppServer::SetEntryPointIpc *entryPointMsg = (ZoogAppServer::SetEntryPointIpc *) buffer;
++
++    // Construct a set-entry-point Zoog App IPC message
++    ZoogAppServer::ZoogIpcMessage *ipcMessage = &entryPointMsg->hdr;
++    ipcMessage->MagicNumber = ZoogAppServer::IpcMessageMagic;
++    ipcMessage->UID = sendEntryPointUid;
++    ipcMessage->Type = ZoogAppServer::SET_ENTRY_POINT;
++    ipcMessage->Length = sizeof(ZoogAppServer::ZoogIpcMessage) + entryPoint_len;
++
++	entryPointMsg->args.explicit_viewport = explicit_viewport;
++	entryPointMsg->args.deed = deed;
++	entryPointMsg->args.entry_point_len = entryPoint_len;
++
++    // Append entry point to the end of the buffer
++    memcpy(entryPointMsg->args.entry_point, entryPoint, entryPoint_len);
++    
++    // Send buffer containing entrypoint
++    int send_message_len = sendto(socketfd, buffer, buffer_len, 0, (sockaddr*) &server_address, server_address_len);
++    if (send_message_len != buffer_len)
++    {
++        assert(false);
++    }
++
++    // Close socket
++    close(socketfd);
++
++    // Cleanup buffer
++    if (buffer != NULL)
++    {
++        delete buffer;
++        buffer = NULL;
++    }
++}
++
++void ZoogAppClient::LaunchLocalApplication(const char *protocol, const char *principal, const uint8_t *entryPoint)
++{
++	LaunchLocalApplication(protocol, principal, entryPoint, false, (Deed) -1);
++}
++
++#if 0
++void ZoogAppClient::LaunchLocalApplication(const char *protocol, const char *principal, const uint8_t *entryPoint, ViewportID viewport_id)
++{
++	LaunchLocalApplication(protocol, principal, entryPoint, true, viewport_id);
++}
++#endif
++
++/*------------------------------------------------------------------------------
++| Method: LaunchLocalApplication
++|  
++| Purpose: Launch a local Zoog application
++|
++| Parameters:
++|   protocol   (IN) - Protocol to retrieve bootblock (e.g HTTP)
++|   principal  (IN) - Principal bootblock location (e.g. cnn.com or localhost)
++|   entryPoint (IN) - Entry point to direct booted application to
++|   explicit_viewport (IN) - if false, we're asking the remote app to find
++|     its own darn canvas to draw on; a hack while experimenting. If true,
++|     viewport_id is valid.
++|   viewport_id (IN) - the remote app can expect to find a canvas
++|     here to draw on, which will appear within caller's canvas.
++|
++| Returns: none
++------------------------------------------------------------------------------*/
++void ZoogAppClient::LaunchLocalApplication(const char *protocol, const char *principal, const uint8_t *entryPoint, bool explicit_viewport, Deed deed)
++{
++    if (strcmp(protocol, "http") == 0)
++    {
++        if (strcmp(principal, "localhost") == 0)
++        {
++            // TODO The boot block file should come from the principal via the protocol
++            // For now we always launch midori if the site is "localhost"
++            FILE *file = fopen(ZOOG_ROOT "/toolchains/linux_elf/elf_loader/build/elf_loader.vendor_b.signed", "rb");
++    
++            // TODO check return values
++
++            int fseekReturn = fseek(file, 0, SEEK_END);
++            if (fseekReturn != 0)
++            {
++                assert(false);
++            }
++    
++            long file_size = ftell(file);
++    
++            fseekReturn = fseek(file, 0, SEEK_SET);
++            if (fseekReturn != 0)
++            {
++                assert(false);
++            }
++    
++            uint8_t* buffer = new uint8_t[file_size];
++    
++            int freadReturn = fread(buffer, 1, file_size, file);
++            if (freadReturn != file_size)
++            {
++                printf("ERROR did not read complete file. Expected length: %d Actual length: %d.", (int) file_size, freadReturn);
++                assert(false);
++            }
++    
++            // Close file
++            int fcloseReturn = fclose(file);
++            if (0 != fcloseReturn)
++            {
++                printf("ERROR closing file. Error code: %d.", fcloseReturn);
++                assert(false);
++            }
++
++            // Launch application
++            ZoogDispatchTable_v1 *dispatchTable = xe_get_dispatch_table(); // TODO static instance in helper
++
++            SignedBinary *signed_binary = (SignedBinary*)buffer;
++            
++            dispatchTable->zoog_launch_application(signed_binary);
++
++            // Get launched app's identity
++            ZCert launchedAppCert(((uint8_t*)signed_binary+sizeof(SignedBinary)), signed_binary->cert_len);
++            ZPubKey *launchedAppVendorPubKey = launchedAppCert.getEndorsingKey();
++            uint8_t* launchedAppVendorIdentity = new uint8_t[launchedAppVendorPubKey->size()];
++            launchedAppVendorPubKey->serialize(launchedAppVendorIdentity);
++            
++            // Send entryPoint to launched app
++            SendEntryPoint(launchedAppVendorIdentity, launchedAppVendorPubKey->size(), (uint8_t*)entryPoint, strlen((const char*)entryPoint) + 1, explicit_viewport, deed);
++            
++            delete launchedAppVendorIdentity;
++            delete buffer;
++        }
++        else
++        {
++            // non-localhost not supported
++        }
++    }
++    else
++    {
++        // non-HTTP not supported
++    }
++}
++#endif
+diff -x tags -x navigation_module -x common -x crypto -x ifc -x utils -x zoog_root.h -rNu build-reference/source-files/webkit-1.2.7/WebCore/zoog/ZoogAppClient.h build/source-files/webkit-1.2.7/WebCore/zoog/ZoogAppClient.h
+--- build-reference/source-files/webkit-1.2.7/WebCore/zoog/ZoogAppClient.h	1969-12-31 16:00:00.000000000 -0800
++++ build/source-files/webkit-1.2.7/WebCore/zoog/ZoogAppClient.h	2012-04-24 17:31:50.771734638 -0700
+@@ -0,0 +1,78 @@
++#pragma once
++
++#include "ZoogAppServer.h"
++#include "xax_extensions.h"
++
++
++
++#if 0
++#ifndef ZOOGAPPCLIENT
++#define ZOOGAPPCLIENT
++
++#include "ZoogAppServer.h"
++#include "xax_extensions.h"
++
++/*------------------------------------------------------------------------------
++| Class: ZoogAppClient
++|
++| Purpose: A Zoog IPC client to handle client-side interactions between two
++|   Zoog apps
++------------------------------------------------------------------------------*/
++class ZoogAppClient
++{
++public:
++    /*------------------------------------------------------------------------------
++    | Method: LaunchLocalApplication
++    |  
++    | Purpose: Launch a local Zoog application
++    |
++    | Parameters:
++    |   protocol   (IN) - Protocol to retrieve bootblock (e.g HTTP)
++    |   principal  (IN) - Principal bootblock location (e.g. cnn.com or localhost)
++    |   entryPoint (IN) - Entry point to direct booted application to
++    |
++    | Returns: none
++    ------------------------------------------------------------------------------*/
++    void LaunchLocalApplication(const char *protocol, const char *principal, const uint8_t *entryPoint);
++#if 0
++	void LaunchLocalApplication(const char *protocol, const char *principal, const uint8_t *entryPoint, ViewportID viewport_id);
++#endif
++	void LaunchLocalApplication(const char *protocol, const char *principal, const uint8_t *entryPoint, bool explicit_viewport, Deed deed);
++
++    /*------------------------------------------------------------------------------
++    | Method: SendEntryPoint
++    |
++    | Purpose: Send an entry-point to a Zoog application
++    |
++    | Parameters:
++    |   serverIdentity      (IN) - Identity of the server to find
++    |   serverIdentity_len  (IN) - Length of serverIdentity in bytes
++    |   entryPoint          (IN) - Entrypoint to direct the server to
++    |   entryPoint_len      (IN) - Length of entryPoint in bytes
++    |
++    | Returns: none
++    ------------------------------------------------------------------------------*/
++	void SendEntryPoint(const uint8_t* serverIdentity, int serverIdentity_len, const uint8_t* entryPoint, int entryPoint_len, bool explicit_viewport, Deed deed);
++
++private:
++    /*------------------------------------------------------------------------------
++    | Method: FindServer
++    |
++    | Purpose: Find a ZoogIpcServer server running in broadcast range of the client
++    |   with the specified identity
++    |
++    | Parameters:
++    |   serverIdentity      (IN)  - Identity of the server to find
++    |   serverIdentity_len  (IN)  - Length of serverIdentity in bytes
++    |   timeoutSeconds      (IN)  - Timeout in seconds to wait for an app to respond
++    |   server_address      (OUT) - Socket address of the server found
++    |   server_addres_len   (OUT) - Length of server_address in bytes
++    |
++    | Returns: none
++    ------------------------------------------------------------------------------*/
++    void FindServer(const uint8_t* serverIdentity, int serverIdentity_len, int timeoutSeconds, struct sockaddr* server_address, socklen_t &server_address_len);
++
++};
++
++#endif
++#endif
+diff -x tags -x navigation_module -x common -x crypto -x ifc -x utils -x zoog_root.h -rNu build-reference/source-files/webkit-1.2.7/WebCore/zoog/ZoogAppServer.cpp build/source-files/webkit-1.2.7/WebCore/zoog/ZoogAppServer.cpp
+--- build-reference/source-files/webkit-1.2.7/WebCore/zoog/ZoogAppServer.cpp	1969-12-31 16:00:00.000000000 -0800
++++ build/source-files/webkit-1.2.7/WebCore/zoog/ZoogAppServer.cpp	2012-04-28 21:26:24.233620173 -0700
+@@ -0,0 +1,79 @@
++#include <assert.h>
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <fcntl.h>
++#include <unistd.h>
++#include <stdio.h>
++#include <stdlib.h>
++
++// Sockets
++#include <string.h>
++#include <sys/socket.h>
++#include <netdb.h>
++
++#include "xax_extensions.h"
++#include "ZoogAppServer.h"
++#include "LiteAssert.h"
++#include "zoog_root.h"
++#include "NavigationBlob.h"
++#include "NavigationProtocol.h"
++#include "ZRectangle.h"
++#include "XvncControlProtocol.h"
++#include "standard_malloc_factory.h"
++
++ZoogAppServer::ZoogAppServer(SetEntryPointCallback_t *callback, void *user_data)
++	: setEntryPointCallback(callback),
++	  setEntryPointUserData(user_data),
++	  in_use(false),
++	  nav_mgr(this, &url_factory),
++	  callout_ifc(NULL)
++{
++}
++
++void ZoogAppServer::transfer(
++	const char *protocol,
++	const char *host,
++	const char *path)
++{
++	callout_ifc->transfer_forward(host, new UrlEP(path));
++}
++
++void ZoogAppServer::transfer_back()
++{
++	callout_ifc->transfer_backward();
++}
++
++void ZoogAppServer::setup_callout_ifc(NavCalloutIfc *callout_ifc)
++{
++	this->callout_ifc = callout_ifc;
++}
++
++void ZoogAppServer::navigate(EntryPointIfc *entry_point)
++{
++	UrlEP* url_ep = (UrlEP*) entry_point;
++	(setEntryPointCallback)(setEntryPointUserData, url_ep->get_url());
++}
++
++void ZoogAppServer::no_longer_used()
++{
++	in_use = false;
++}
++
++void ZoogAppServer::pane_revealed(ViewportID pane_tenant_id)
++{
++	XCClient xcc;
++	xcc.change_viewport(pane_tenant_id);
++}
++
++void ZoogAppServer::pane_hidden()
++{
++	XCClient xcc;
++	xcc.unmap_canvas();
++}
++
++NavigateIfc *ZoogAppServer::create_navigate_server()
++{
++	if (in_use) { return NULL; }
++	in_use = true;
++	return this;
++}
+diff -x tags -x navigation_module -x common -x crypto -x ifc -x utils -x zoog_root.h -rNu build-reference/source-files/webkit-1.2.7/WebCore/zoog/ZoogAppServer.h build/source-files/webkit-1.2.7/WebCore/zoog/ZoogAppServer.h
+--- build-reference/source-files/webkit-1.2.7/WebCore/zoog/ZoogAppServer.h	1969-12-31 16:00:00.000000000 -0800
++++ build/source-files/webkit-1.2.7/WebCore/zoog/ZoogAppServer.h	2012-04-28 16:12:58.804719493 -0700
+@@ -0,0 +1,48 @@
++#pragma once
++
++#include "LiteAssert.h"
++//#define assert(cond) lite_assert(cond)
++
++#define _MSC_VER 0 // To limit warnings from zoog/crypto/vmac.h
++
++#include <sys/socket.h>
++#include <netinet/in.h>
++#include <pthread.h>
++#include "NavMgr.h"
++#include "UrlEP.h"
++
++class NavigationBlob;
++class ZASNavigateFactory;
++
++class ZoogAppServer : public NavigateIfc, NavigateFactoryIfc {
++public:
++    typedef void (SetEntryPointCallback_t)(void* userData, const char* entry_point);
++
++private:
++	SetEntryPointCallback_t* setEntryPointCallback;
++	void* setEntryPointUserData;
++	bool in_use;
++	UrlEPFactory url_factory;
++	NavMgr nav_mgr;
++	NavCalloutIfc *callout_ifc;
++
++public:
++    ZoogAppServer(SetEntryPointCallback_t* callback, void* user_data);
++	void transfer(
++		const char *protocol,
++		const char *host,
++		const char *path);
++		// href -- user clicked on a link/submitted a GET form
++	void transfer_back();	// user clicked the back button
++
++	// NavigateIfc
++	void setup_callout_ifc(NavCalloutIfc *callout_ifc);
++	void navigate(EntryPointIfc *entry_point);
++	void no_longer_used();
++	void pane_revealed(ViewportID pane_tenant_id);
++	void pane_hidden();
++
++	// NavigateFactoryIfc
++	NavigateIfc *create_navigate_server();
++};
++
+diff -x tags -x navigation_module -x common -x crypto -x ifc -x utils -x zoog_root.h -rNu build-reference/source-files/webkit-1.2.7/WebCore/zoog/ZoogDeps.cpp build/source-files/webkit-1.2.7/WebCore/zoog/ZoogDeps.cpp
+--- build-reference/source-files/webkit-1.2.7/WebCore/zoog/ZoogDeps.cpp	1969-12-31 16:00:00.000000000 -0800
++++ build/source-files/webkit-1.2.7/WebCore/zoog/ZoogDeps.cpp	2012-04-24 17:31:50.775734655 -0700
+@@ -0,0 +1,12 @@
++#include <malloc.h>
++#include "ambient_malloc.h"
++
++void *ambient_malloc(size_t size)
++{
++	return malloc(size);
++}
++
++void ambient_free(void *ptr)
++{
++	return free(ptr);
++}
+diff -x tags -x navigation_module -x common -x crypto -x ifc -x utils -x zoog_root.h -rNu build-reference/source-files/webkit-1.2.7/WebCore/zoog/ZoogView.cpp build/source-files/webkit-1.2.7/WebCore/zoog/ZoogView.cpp
+--- build-reference/source-files/webkit-1.2.7/WebCore/zoog/ZoogView.cpp	1969-12-31 16:00:00.000000000 -0800
++++ build/source-files/webkit-1.2.7/WebCore/zoog/ZoogView.cpp	2012-04-24 17:31:50.775734655 -0700
+@@ -0,0 +1,209 @@
++#include "config.h"
++
++#include <stdio.h>
++#include <assert.h>
++
++// nasty layer-violation for get_screen_coords
++#include <gtk/gtk.h>
++
++#include "ScrollView.h"
++#include "HostWindow.h"
++#include "GraphicsContext.h"
++#include "platform/KURL.h"
++
++#include "xax_extensions.h"
++
++#include "ZoogView.h"
++#include "ZoogAppClient.h"
++#include "ZCert.h"
++#include "zoog_root.h"
++#include "CString.h"
++#include "XvncControlProtocol.h"
++#include "ZRectangle.h"
++	#include "LiteAssert.h"
++
++namespace WebCore {
++
++ZoogView::ZoogView(AtomicString url)
++	: m_url(url)
++{
++}
++
++ZoogView::~ZoogView()
++{
++	fprintf(stderr, "ZoogView destroyed.\n");
++}
++
++bool ZoogView::ask_vnc_for_viewport_id(ViewportID *out_viewport_id)
++{
++#if 0
++	FILE *fp = fopen("/tmp/xvnc_canvas_id", "r");
++	if (fp==NULL)
++	{
++		fprintf(stderr, "ZoogView: Couldn't ask_vnc_for_canvas_id\n");
++		return false;
++	}
++	int rc = fread((void*) out_canvas_id, sizeof(*out_canvas_id), 1, fp);
++	fclose(fp);
++	if (rc!=1)
++	{
++		fprintf(stderr, "ZoogView: ask_vnc_for_canvas_id invalid\n");
++		return false;
++	}
++#endif
++	XCClient xcc;
++	*out_viewport_id = xcc.read_viewport();
++	return true;
++}
++
++uint8_t *ZoogView::read_all(const char *path, uint32_t *out_len)
++{
++	FILE *file = fopen(path, "rb");
++	assert(file!=NULL);
++
++#define jassert(x)	{ (void) (x); assert(x); }
++	int fseekReturn = fseek(file, 0, SEEK_END);
++	jassert(fseekReturn == 0);
++	long file_size = ftell(file);
++
++	fseekReturn = fseek(file, 0, SEEK_SET);
++	jassert(fseekReturn == 0);
++
++	uint8_t* buffer = new uint8_t[file_size];
++
++	int freadReturn = fread(buffer, 1, file_size, file);
++	jassert(freadReturn == file_size);
++
++	// Close file
++	int fcloseReturn = fclose(file);
++	jassert(fcloseReturn == 0);
++
++	*out_len = file_size;
++	return buffer;
++}
++
++#if 0
++VendorIdentity *ZoogView::figure_out_delegate()
++{
++	// Oh, ZoogAppClient is hardcoding vendor_b anyway. Sigh. We'll do
++	// the same for now.
++	uint32_t len;
++	uint8_t *cert = read_all(
++		ZOOG_ROOT "/toolchains/linux_elf/crypto/certs/vendor-b.cert", &len);
++	ZCert *zcert = new ZCert(cert, len);
++	return zcert->getEndorsedKey();
++}
++#endif
++
++void ZoogView::invalidateRect(const IntRect&)
++{
++}
++
++void ZoogView::paint(GraphicsContext *p, const IntRect& damageRect)
++{
++	p->save();
++	p->translate(x(), y());
++	p->setStrokeThickness(2.0);
++	p->setStrokeStyle(WebCore::SolidStroke);
++	p->setStrokeColor(Color(0xcf, 0x50, 0), p->strokeColorSpace());
++	p->drawLine(IntPoint(7,23), IntPoint(27,15));
++	p->drawLine(IntPoint(27,15), IntPoint(27,3));
++	p->drawLine(IntPoint(27,3), IntPoint(17,10));
++	p->restore();
++}
++
++void ZoogView::show()
++{
++	fprintf(stderr, "ZoogView::show %d %d %d %d\n",
++		x(), y(), width(), height());
++}
++
++void ZoogView::hide()
++{
++	fprintf(stderr, "ZoogView::hide.\n");
++}
++
++void ZoogView::setFrameRect(const IntRect&r)
++{
++	Widget::setFrameRect(r);
++	fprintf(stderr, "ZoogView::setFrameRect %d %d %d %d\n",
++		x(), y(), width(), height());
++	if (width()>0)
++	{
++		createDelegate();
++	}
++}
++
++void ZoogView::get_screen_coords(int *screen_x, int *screen_y)
++{
++	// based on pattern in platform/gtk/PlatformScreenGtk.cpp screenRect()
++    GtkWidget* this_container = GTK_WIDGET(this->root()->hostWindow()->platformPageClient());
++
++    GtkWidget* outer_container = gtk_widget_get_toplevel(this_container);
++    if (!gtk_widget_is_toplevel(outer_container)) { goto fail; }
++	
++	bool rc;
++	rc = gtk_widget_translate_coordinates(this_container, outer_container, x(), y(), screen_x, screen_y);
++	if (rc) {
++		// success!
++		return;
++	}
++
++fail:
++	*screen_x = x();
++	*screen_y = x();
++}
++
++void ZoogView::createDelegate()
++{
++	// To get the parent canvas, we need to ask the guy who's handling
++	// it -- xvnc. Yuck! As long as we're only managing one canvas, I guess
++	// that's okay. Wow, what shall we do when we have two? Instantiate
++	// xvnc twice? Give one xvnc a bigger backing stork and blit onto two
++	// zoog canvases? Yuck. Let's not cross that bridge for some time.
++	ViewportID parent_viewport_id;
++	bool brc = ask_vnc_for_viewport_id(&parent_viewport_id);
++	if (!brc)
++	{
++		return;
++	}
++
++	ZoogDispatchTable_v1 *zdt = xe_get_dispatch_table();
++
++	int screen_x, screen_y;
++	get_screen_coords(&screen_x, &screen_y);
++	ZRectangle zr = NewZRectangle(screen_x, screen_y, width(), height());
++
++	ViewportID landlord_viewport;
++	Deed deed;
++	(zdt->zoog_sublet_viewport)(
++		parent_viewport_id, &zr, &landlord_viewport, &deed);
++
++	// Run Adrian's protocol to launch recipient app to handle
++	// this iframe.
++	KURL strippedUrl;
++    if (m_url.string().startsWith("zoog:", false))
++    {
++        strippedUrl = KURL(ParsedURLString, m_url.string().substring(5));
++	}
++	else
++	{
++		strippedUrl = KURL(ParsedURLString, m_url.string());
++	}
++	
++	fprintf(stderr, "TODO: ZoogView(IFrame) implementation incomplete.\n");
++	lite_assert(false);
++#if 0
++	TODO("This should become a NavigateForward");
++	
++	ZoogAppClient appClient;
++	appClient.LaunchLocalApplication(
++		strippedUrl.protocol().utf8().data(),
++		strippedUrl.host().utf8().data(), 
++		(const uint8_t*)strippedUrl.path().substring(1).utf8().data(),
++		true,
++		deed);
++#endif
++}
++
++} // namespace WebCore
+diff -x tags -x navigation_module -x common -x crypto -x ifc -x utils -x zoog_root.h -rNu build-reference/source-files/webkit-1.2.7/WebCore/zoog/ZoogView.h build/source-files/webkit-1.2.7/WebCore/zoog/ZoogView.h
+--- build-reference/source-files/webkit-1.2.7/WebCore/zoog/ZoogView.h	1969-12-31 16:00:00.000000000 -0800
++++ build/source-files/webkit-1.2.7/WebCore/zoog/ZoogView.h	2012-04-24 17:31:50.775734655 -0700
+@@ -0,0 +1,34 @@
++#pragma once
++
++#include "Widget.h"
++#include "AtomicString.h"
++
++#include "pal_abi/pal_ui.h"
++
++#include <wtf/RefCounted.h>
++
++namespace WebCore {
++
++class ZoogView : public Widget {
++public:
++    ZoogView(AtomicString url);
++    virtual ~ZoogView();
++
++    virtual void invalidateRect(const IntRect&);
++    virtual void paint(GraphicsContext*, const IntRect& damageRect);
++
++    virtual void show();
++    virtual void hide();
++    virtual void setFrameRect(const IntRect&);
++
++private:
++	bool ask_vnc_for_viewport_id(ViewportID *out_viewport_id);
++	uint8_t *read_all(const char *path, uint32_t *out_len);
++	void createDelegate();
++	void get_screen_coords(int *screen_x, int *screen_y);
++	
++	AtomicString m_url;
++};
++
++} // namespace WebCore
++

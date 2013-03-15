@@ -1,0 +1,5 @@
+This directory builds a posix application, meant to run on the app vendor's
+server. Capture an app's file dependencies by running it against a
+zftp_backend with the '--log-paths' option, then feed that logfile
+to zftp_create_zarfile to bundle all those paths into a zarfile for
+one-step bulk loading.

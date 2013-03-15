@@ -1,0 +1,55 @@
+--- ../../external-code/vmac/vmac.h	2011-07-05 08:24:13.000000000 -0700
++++ ../crypto/vmac.h	2012-04-03 13:22:01.161066555 -0700
+@@ -22,7 +22,7 @@
+                             /* of consecutive nonces on 64-bit tags        */
+ 
+ #define VMAC_RUN_TESTS 0  /* Set to non-zero to check vectors and speed    */
+-#define VMAC_HZ (448e6)  /* Set to hz of host machine to get speed        */
++#define VMAC_HZ (2.8e9)  /* Set to hz of host machine to get speed        */
+ #define VMAC_HASH_ONLY 0  /* Set to non-zero to time hash only (not-mac)   */
+ /* Speeds of cpus I have access to
+ #define hz (2400e6)  glyme Core 2 "Conroe"
+@@ -43,6 +43,7 @@
+  * ----------------------------------------------------------------------- */
+ #define VMAC_USE_STDINT 1  /* Set to zero if system has no stdint.h        */
+  
++#if 0
+ #if VMAC_USE_STDINT && !_MSC_VER /* Try stdint.h if non-Microsoft          */
+ #ifdef  __cplusplus
+ #define __STDC_CONSTANT_MACROS
+@@ -51,12 +52,21 @@
+ #elif (_MSC_VER)                  /* Microsoft C does not have stdint.h    */
+ typedef unsigned __int32 uint32_t;
+ typedef unsigned __int64 uint64_t;
++#ifndef UINT64_C
+ #define UINT64_C(v) v ## UI64
++#endif // UINT64_c
+ #else                             /* Guess sensibly - may need adaptation  */
+ typedef unsigned int uint32_t;
+ typedef unsigned long long uint64_t;
+ #define UINT64_C(v) v ## ULL
+ #endif
++#else
++// Some zoog environments can't #include <stdint.h>
++#include "pal_abi/pal_basic_types.h"
++#ifndef UINT64_C
++#define UINT64_C(v) v ## ULL
++#endif // UINT64_C
++#endif
+ 
+ /* --------------------------------------------------------------------------
+  * This implementation supports two free AES implementations: OpenSSL's and
+@@ -79,11 +89,11 @@
+ 
+ #else
+ 
+-#include "rijndael-alg-fst.h"
++#include "rijndael.h"
+ typedef u32 aes_int_key[4*(VMAC_KEY_LEN/32+7)];
+ 
+ #define aes_encryption(in,out,int_key)                  \
+-	    	rijndaelEncrypt((u32 *)(int_key),           \
++	    	rijndaelBlockEncrypt((u32 *)(int_key),      \
+ 	                        ((VMAC_KEY_LEN/32)+6),      \
+ 	    				    (u8 *)(in), (u8 *)(out))
+ #define aes_key_setup(user_key,int_key)                 \

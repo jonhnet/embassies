@@ -1,0 +1,123 @@
+--- ../../external-code/vmac/vmac.c	2011-07-05 08:24:13.000000000 -0700
++++ ../crypto/vmac.c	2012-04-30 12:16:48.085657704 -0700
+@@ -7,8 +7,10 @@
+  * ----------------------------------------------------------------------- */
+ 
+ #include "vmac.h"
+-#include <string.h>
+-#include <stdio.h>
++//#include <string.h>
++//#include <stdio.h>
++#include "LiteLib.h"
++#define FIX_ALIASING 1
+ 
+ /* Enable code tuned for 64-bit registers; otherwise tuned for 32-bit */
+ #ifndef VMAC_ARCH_64
+@@ -72,6 +74,18 @@
+ #elif (__GNUC__ && __i386__)
+ /* ----------------------------------------------------------------------- */
+ 
++#ifdef FIX_ALIASING
++#define GET_REVERSED_64(p)                                                \
++    ({ uint64_t x;                                                        \
++    uint32_t tpL = (*p);                                       \
++    uint32_t tpU = (*p) >> 32;                                       \
++    asm  ("bswap %%edx\n\t"                                               \
++          "bswap %%eax"                                                   \
++    : "=A"(x)                                                             \
++    : "a"(tpU), "d"(tpL));                                            \
++    x; })
++
++#else // FIX_ALIASING
+ #define GET_REVERSED_64(p)                                                \
+     ({ uint64_t x;                                                        \
+     uint32_t *tp = (uint32_t *)(p);                                       \
+@@ -80,6 +94,7 @@
+     : "=A"(x)                                                             \
+     : "a"(tp[1]), "d"(tp[0]));                                            \
+     x; })
++#endif // FIX_ALIASING
+ 
+ /* ----------------------------------------------------------------------- */
+ #elif (__GNUC__ && __ppc64__)
+@@ -493,6 +508,7 @@
+ #define k2 [edx+0]
+ #define k3 [edx+4]
+ 
++	__asm__ __volatile__ ( "push %esi;" );
+ #ifdef __GNUC__
+ 	uint32_t temp;
+ 	__asm__ __volatile__
+@@ -587,6 +603,7 @@
+ 		: "memory", "cc"
+ 	);
+ #endif
++	__asm__ __volatile__ ( "pop %esi;" );
+ 
+ 
+ #undef a0
+@@ -636,6 +653,20 @@
+ #define INDEX_LOW 0
+ #endif
+ 
++#ifdef FIX_ALIASING
++#if VMAC_ARCH_BIG_ENDIAN
++assert(0);
++#else 
++uint32_t a0 = (uint32_t ) (*alo);
++uint32_t a1 = (uint32_t ) ((*alo)>>32); 
++uint32_t a2 = (uint32_t ) (*ahi);
++uint32_t a3 = (uint32_t ) ((*ahi)>>32); 
++uint32_t k0 = (uint32_t ) (*kl);
++uint32_t k1 = (uint32_t ) ((*kl)>>32); 
++uint32_t k2 = (uint32_t ) (*kh);
++uint32_t k3 = (uint32_t ) ((*kh)>>32); 
++#endif
++#else // FIX_ALIASING
+ #define a0 *(((uint32_t*)alo)+INDEX_LOW)
+ #define a1 *(((uint32_t*)alo)+INDEX_HIGH)
+ #define a2 *(((uint32_t*)ahi)+INDEX_LOW)
+@@ -644,6 +675,7 @@
+ #define k1 *(((uint32_t*)kl)+INDEX_HIGH)
+ #define k2 *(((uint32_t*)kh)+INDEX_LOW)
+ #define k3 *(((uint32_t*)kh)+INDEX_HIGH)
++#endif // FIX_ALIASING
+ 
+     uint64_t p, q, t;
+     uint32_t t2;
+@@ -662,7 +694,13 @@
+     p += MUL32(a3, k0);
+     t |= ((uint64_t)((uint32_t)p & 0x7fffffff)) << 32;
+     p >>= 31;
++
++#ifdef FIX_ALIASING
++    p += (uint32_t)(*ml);
++#else // FIX_ALIASING
+     p += (uint64_t)(((uint32_t*)ml)[INDEX_LOW]);
++#endif // FIX_ALIASING
++
+     p += MUL32(a0, k0);
+     q =  MUL32(a1, k3);
+     q += MUL32(a2, k2);
+@@ -671,7 +709,12 @@
+     p += q;
+     t2 = (uint32_t)(p);
+     p >>= 32;
++
++#ifdef FIX_ALIASING
++    p += (*ml)>>32;  
++#else // FIX_ALIASING
+     p += (uint64_t)(((uint32_t*)ml)[INDEX_HIGH]);
++#endif // FIX_ALIASING
+     p += MUL32(a0, k1);
+     p += MUL32(a1, k0);
+     q =  MUL32(a2, k3);
+@@ -1158,7 +1201,7 @@
+     /* Initialize context and message buffer, all 16-byte aligned */
+     p = malloc(buf_len + 32);
+     m = (unsigned char *)(((size_t)p + 16) & ~((size_t)15));
+-    memset(m, 0, buf_len + 16);
++    lite_memset(m, 0, buf_len + 16);
+     vmac_set_key(key, &ctx);
+     
+     /* Test incremental and all-in-one interfaces for correctness */

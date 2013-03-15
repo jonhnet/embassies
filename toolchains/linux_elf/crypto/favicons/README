@@ -1,0 +1,2 @@
+PNG files need to be "type 2" (RGB non-palette), 24 bit depth. We seem
+to be able to get that with pnmtopng -force.
