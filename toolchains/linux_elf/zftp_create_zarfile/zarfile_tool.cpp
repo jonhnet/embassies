@@ -7,82 +7,16 @@
 #include "zftp_dir_format.h"
 #include "ZTArgs.h"
 #include "PosixChunkDecoder.h"
+#include "FileScanner.h"
 
-class Scanner;
-
-class Operation {
-public:
-	virtual void operate(Scanner *scanner) = 0;
-	virtual int result() = 0;
-};
-
-class Scanner {
-public:
-	Scanner(const char *zarfile, Operation *operation);
-	void read_chunk(uint32_t chunk_idx, ZF_Chdr *out_chunk);
-
-	FILE *ifp;
-	ZF_Zhdr zhdr;
-	ZF_Phdr phdr;
-	char path[800];
-	bool interrupt;
-};
-
-Scanner::Scanner(const char *zarfile, Operation *operation)
-{
-	interrupt = false;
-
-	ifp = fopen(zarfile, "r");
-	assert(ifp!=NULL);
-	int rc;
-
-	rc = fread(&zhdr, sizeof(zhdr), 1, ifp);
-	assert(rc==1);
-
-	assert(sizeof(ZF_Phdr)==zhdr.z_path_entsz);
-	assert(zhdr.z_magic == Z_MAGIC);
-	assert(zhdr.z_version == Z_VERSION);
-
-	uint32_t pi;
-	for (pi=0; pi<zhdr.z_path_num && !interrupt; pi++)
-	{
-		rc = fseek(ifp, zhdr.z_path_off+zhdr.z_path_entsz*pi, SEEK_SET);
-		assert(rc==0);
-
-		rc = fread(&phdr, sizeof(phdr), 1, ifp);
-		assert(rc==1);
-
-		rc = fseek(ifp, zhdr.z_strtab_off+phdr.z_path_str_off, SEEK_SET);
-		assert(rc==0);
-
-		assert(phdr.z_path_str_len+1 <= sizeof(path));
-		rc = fread(path, phdr.z_path_str_len+1, 1, ifp);
-		assert(rc==1);
-
-		operation->operate(this);
-	}
-}
-
-void Scanner::read_chunk(uint32_t chunk_idx, ZF_Chdr *out_chunk)
-{
-	assert(zhdr.z_chunktab_entsz == sizeof(*out_chunk));
-	assert(chunk_idx < zhdr.z_chunktab_count);
-	int rc;
-	rc = fseek(ifp, zhdr.z_chunktab_off + chunk_idx*zhdr.z_chunktab_entsz, SEEK_SET);
-	assert(rc==0);
-
-	rc = fread(out_chunk, zhdr.z_chunktab_entsz, 1, ifp);
-	assert(rc==1);
-}
-
-class ListChunksOperation : public Operation {
+class ListChunksOperation : public FileOperationIfc {
 private:
 	uint32_t bytes_in_stat;
 	uint32_t bytes_in_file;
 	uint32_t bytes_in_dir;
 public:
 	ListChunksOperation();
-	void operate(Scanner *scanner);
+	void operate(FileScanner *scanner);
 	int result();
 };
 
@@ -93,37 +27,37 @@ ListChunksOperation::ListChunksOperation()
 {
 }
 
-void ListChunksOperation::operate(Scanner *scanner)
+void ListChunksOperation::operate(FileScanner *scanner)
 {
 	bool is_dir =
-		scanner->phdr.protocol_metadata.flags & ZFTP_METADATA_FLAG_ISDIR;
+		scanner->get_phdr()->protocol_metadata.flags & ZFTP_METADATA_FLAG_ISDIR;
 
 	uint32_t total_chunk_bytes = 0;
-	for (uint32_t ci=0; ci<scanner->phdr.z_chunk_count; ci++)
+	for (uint32_t ci=0; ci<scanner->get_phdr()->z_chunk_count; ci++)
 	{
 		ZF_Chdr chunk;
-		scanner->read_chunk(scanner->phdr.z_chunk_idx + ci, &chunk);
+		scanner->read_chunk(scanner->get_phdr()->z_chunk_idx + ci, &chunk);
 		total_chunk_bytes += chunk.z_data_len;
 	}
 
 	char buffer[1000];
 	snprintf(buffer, sizeof(buffer), "%c %10d %10d %s",
-		((scanner->phdr.protocol_metadata.flags&ZFTP_METADATA_FLAG_ENOENT)
+		((scanner->get_phdr()->protocol_metadata.flags&ZFTP_METADATA_FLAG_ENOENT)
 			? 'E'
 				: (is_dir ? 'd' : 'f')),
-		scanner->phdr.z_file_len,
+		scanner->get_phdr()->z_file_len,
 		total_chunk_bytes,
-		scanner->path);
+		scanner->get_path());
 //	fprintf(stdout, "%c %10d %10d %s\n",
-//		((scanner->phdr.protocol_metadata.flags&ZFTP_METADATA_FLAG_ENOENT)
+//		((scanner->get_phdr()->protocol_metadata.flags&ZFTP_METADATA_FLAG_ENOENT)
 //			? 'E'
 //				: (is_dir ? 'd' : 'f')),
-//		scanner->phdr.z_file_len,
+//		scanner->get_phdr()->z_file_len,
 //		total_chunk_bytes,
-//		scanner->path);
+//		scanner->get_path());
 
 	uint32_t *bill_to = NULL;
-	if (lite_starts_with(STAT_SCHEME, scanner->path))
+	if (lite_starts_with(STAT_SCHEME, scanner->get_path()))
 	{
 		bill_to = &bytes_in_stat;
 	}
@@ -136,10 +70,10 @@ void ListChunksOperation::operate(Scanner *scanner)
 		bill_to = &bytes_in_file;
 	}
 
-	for (uint32_t ci=0; ci<scanner->phdr.z_chunk_count; ci++)
+	for (uint32_t ci=0; ci<scanner->get_phdr()->z_chunk_count; ci++)
 	{
 		ZF_Chdr chunk;
-		scanner->read_chunk(scanner->phdr.z_chunk_idx + ci, &chunk);
+		scanner->read_chunk(scanner->get_phdr()->z_chunk_idx + ci, &chunk);
 		//fprintf(stdout, "  chunk @0x%x :0x%x%s (file offset %x)\n",
 		fprintf(stdout, "chunk @0x%08x :0x%08x file_offset 0x%08x %-9s %s \n", 
 			chunk.z_data_off,
@@ -158,13 +92,69 @@ int ListChunksOperation::result()
 	return 0;
 }
 
-class ExtractOperation : public Operation {
+class FlatUnpack : public FileOperationIfc {
+private:
+	const char* dest_path;
+
+public:
+	FlatUnpack(const char* dest_path)
+		: dest_path(dest_path)
+		{}
+	int result();
+	void operate(FileScanner *scanner);
+};
+
+int FlatUnpack::result()
+{
+	return 0;
+}
+
+void FlatUnpack::operate(FileScanner *scanner)
+{
+	bool is_dir = (scanner->get_phdr()->protocol_metadata.flags
+		& ZFTP_METADATA_FLAG_ISDIR)!=0;
+	if (is_dir)
+	{
+		return;
+	}
+	if (strncmp(scanner->get_path(), "file:", 5) != 0)
+	{
+		return;
+	}
+
+	char* in = strdup(&scanner->get_path()[5]);
+	char* base = basename(in);
+	int out_len = strlen(dest_path) + 1 + strlen(base) + 20 + 1;
+	char* out_path = (char*) malloc(out_len);
+
+	for (uint32_t ci=0; ci<scanner->get_phdr()->z_chunk_count; ci++)
+	{
+		ZF_Chdr chunk;
+		scanner->read_chunk(scanner->get_phdr()->z_chunk_idx + ci, &chunk);
+
+		snprintf(out_path, out_len, "%s/%s-c%04d.chunk", dest_path, base, ci);
+		FILE* fp = fopen(out_path, "w");
+
+		uint8_t* buf = (uint8_t*)malloc(chunk.z_data_len);
+		scanner->read_zarfile(buf, chunk.z_data_len, chunk.z_file_off);
+		int rc = fwrite(buf, chunk.z_data_len, 1, fp);
+		assert(rc==1);
+		free(buf);
+
+		fclose(fp);
+	}
+
+	free(out_path);
+	free(in);
+}
+
+class ExtractOperation : public FileOperationIfc {
 private:
 	const char *_path;
 	bool _completed;
 	bool decode_as_directory;
 
-	void decode_directory(PosixChunkDecoder* pcd, uint32_t len);
+	void decode_directory(ChunkDecoder* pcd, uint32_t len);
 
 public:
 	ExtractOperation(const char *path, bool decode_as_directory)
@@ -173,10 +163,10 @@ public:
 		 decode_as_directory(decode_as_directory)
 		{}
 	int result();
-	void operate(Scanner *scanner);
+	void operate(FileScanner *scanner);
 };
 
-void ExtractOperation::decode_directory(PosixChunkDecoder* pcd, uint32_t len)
+void ExtractOperation::decode_directory(ChunkDecoder* pcd, uint32_t len)
 {
 	ZFTPDirectoryRecord drec;
 	uint32_t offset = 0;
@@ -195,28 +185,30 @@ void ExtractOperation::decode_directory(PosixChunkDecoder* pcd, uint32_t len)
 	lite_assert(offset==len);
 }
 
-void ExtractOperation::operate(Scanner *scanner)
+void ExtractOperation::operate(FileScanner *scanner)
 {
-	if (strcmp(scanner->path, _path)==0)
+	if (strcmp(scanner->get_path(), _path)==0)
 	{
-		PosixChunkDecoder pcd(&scanner->zhdr, &scanner->phdr, scanner->ifp);
+		ChunkDecoder* chunk_decoder = scanner->get_chunk_decoder();
 		if (decode_as_directory)
 		{
-			decode_directory(&pcd, scanner->phdr.z_file_len);
+			decode_directory(chunk_decoder, scanner->get_phdr()->z_file_len);
 		}
 		else
 		{
-			lite_assert(scanner->phdr.z_file_len < 100<<20);	// >100MB? Probably should write an incremental copy.
-			void* buf = malloc(scanner->phdr.z_file_len);
-			pcd.read(buf, scanner->phdr.z_file_len, 0);
+			lite_assert(scanner->get_phdr()->z_file_len < 100<<20);	// >100MB? Probably should write an incremental copy.
+			void* buf = malloc(scanner->get_phdr()->z_file_len);
+			chunk_decoder->read(buf, scanner->get_phdr()->z_file_len, 0);
 			int rc;
-			rc = fwrite(buf, scanner->phdr.z_file_len, 1, stdout);
+			rc = fwrite(buf, scanner->get_phdr()->z_file_len, 1, stdout);
 			lite_assert(rc==1);
 			free(buf);
 		}
 
-		scanner->interrupt = true;
+		scanner->interrupt();
 		_completed = true;
+
+		delete chunk_decoder;
 	}
 }
 
@@ -231,47 +223,53 @@ int ExtractOperation::result()
 }
 
 
-class ListFilesOperation : public Operation {
+class ListFilesOperation : public FileOperationIfc {
 private:
 	uint32_t bytes_in_stat;
 	uint32_t bytes_in_file;
 	uint32_t bytes_in_dir;
+	bool verbose;
 public:
-	ListFilesOperation();
-	void operate(Scanner *scanner);
+	ListFilesOperation(bool verbose);
+	void operate(FileScanner *scanner);
 	int result();
 };
 
-ListFilesOperation::ListFilesOperation()
+ListFilesOperation::ListFilesOperation(bool verbose)
 	: bytes_in_stat(0),
 	  bytes_in_file(0),
-	  bytes_in_dir(0)
+	  bytes_in_dir(0),
+	  verbose(verbose)
 {
 }
 
-void ListFilesOperation::operate(Scanner *scanner)
+void ListFilesOperation::operate(FileScanner *scanner)
 {
 	bool is_dir =
-		scanner->phdr.protocol_metadata.flags & ZFTP_METADATA_FLAG_ISDIR;
+		scanner->get_phdr()->protocol_metadata.flags & ZFTP_METADATA_FLAG_ISDIR;
 
 	uint32_t total_chunk_bytes = 0;
-	for (uint32_t ci=0; ci<scanner->phdr.z_chunk_count; ci++)
+	for (uint32_t ci=0; ci<scanner->get_phdr()->z_chunk_count; ci++)
 	{
 		ZF_Chdr chunk;
-		scanner->read_chunk(scanner->phdr.z_chunk_idx + ci, &chunk);
+		scanner->read_chunk(scanner->get_phdr()->z_chunk_idx + ci, &chunk);
 		total_chunk_bytes += chunk.z_data_len;
 	}
 
 	fprintf(stdout, "%c %10d %10d %s\n",
-		((scanner->phdr.protocol_metadata.flags&ZFTP_METADATA_FLAG_ENOENT)
+		((scanner->get_phdr()->protocol_metadata.flags&ZFTP_METADATA_FLAG_ENOENT)
 			? 'E'
 				: (is_dir ? 'd' : 'f')),
-		scanner->phdr.z_file_len,
+		scanner->get_phdr()->z_file_len,
 		total_chunk_bytes,
-		scanner->path);
+		scanner->get_path());
+	if (verbose)
+	{
+//fprintf(stdout, "	chunk_idx %0x 
+	}
 
 	uint32_t *bill_to = NULL;
-	if (lite_starts_with(STAT_SCHEME, scanner->path))
+	if (lite_starts_with(STAT_SCHEME, scanner->get_path()))
 	{
 		bill_to = &bytes_in_stat;
 	}
@@ -284,10 +282,10 @@ void ListFilesOperation::operate(Scanner *scanner)
 		bill_to = &bytes_in_file;
 	}
 
-	for (uint32_t ci=0; ci<scanner->phdr.z_chunk_count; ci++)
+	for (uint32_t ci=0; ci<scanner->get_phdr()->z_chunk_count; ci++)
 	{
 		ZF_Chdr chunk;
-		scanner->read_chunk(scanner->phdr.z_chunk_idx + ci, &chunk);
+		scanner->read_chunk(scanner->get_phdr()->z_chunk_idx + ci, &chunk);
 		fprintf(stdout, "  chunk @0x%x :0x%x%s (file offset %x)\n",
 			chunk.z_data_off,
 			chunk.z_data_len,
@@ -308,11 +306,11 @@ int main(int argc, char **argv)
 {
 	ZTArgs args(argc, argv);
 	
-	Operation *op;
+	FileOperationIfc *op;
 	switch (args.mode)
 	{
 	case ZTArgs::list_files:
-		op = new ListFilesOperation();
+		op = new ListFilesOperation(args.verbose);
 		break;
 	case ZTArgs::list_chunks:
 		op = new ListChunksOperation();
@@ -323,10 +321,13 @@ int main(int argc, char **argv)
 	case ZTArgs::list_dir:
 		op = new ExtractOperation(args.dir_path, true);
 		break;
+	case ZTArgs::flat_unpack:
+		op = new FlatUnpack(args.flat_unpack_dest);
+		break;
 	default:
 		lite_assert(false);
 	}
-	Scanner scanner(args.zarfile, op);
+	FileScanner scanner(args.zarfile, op);
 	int result = op->result();
 	delete op;
 

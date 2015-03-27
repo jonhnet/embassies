@@ -271,7 +271,7 @@ int LWIPHandle::connect(XfsErr *err, ZCONST_SOCKADDR_ARG unix_addr, socklen_t un
 {
 	if (unix_addr->sa_family==AF_UNSPEC)
 	{
-		// UNSPEC: weird expedient to deal with "reset the connection" in libc's
+		// UNSPEC: weird expedient deal with "reset the connection" in libc's
 		// sysdeps/posix/getaddrinfo.c:2234
 		*err = (XfsErr) ENOSYS;
 		return -1;

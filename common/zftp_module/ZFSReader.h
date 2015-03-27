@@ -19,6 +19,7 @@
 #include "pal_abi/pal_types.h"
 #include "malloc_factory.h"
 #include "zftp_unix_metadata_format.h"
+#include "WriterIfc.h"
 
 class ZFSReader {
 public:
@@ -30,5 +31,5 @@ public:
 	virtual bool get_unix_metadata(ZFTPUnixMetadata *out_zum) = 0;
 	virtual bool is_cacheable() = 0;
 
-	void copy(FILE *ofp, uint32_t offset, uint32_t len);
+	void copy(WriterIfc* writer, uint32_t offset, uint32_t len);
 };

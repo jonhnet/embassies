@@ -17,6 +17,7 @@
 #include "cheesy_snprintf.h"
 #include "SendBufferFactory_Xnb.h"
 #include "perf_measure.h"
+#include "ZCompressionStub.h"
 
 #include "zbig_main.h"
 
@@ -77,9 +78,10 @@ void App::run(ZBCContext *context)
 	SyncFactory *sf = new SyncFactory_TimedZutex(context->zdt, zclock);
 	SendBufferFactory_Xnb *sbf = new SendBufferFactory_Xnb(context->zdt);
 	ZLCEmit *ze = new ZLCEmitXdt(context->zdt, terse);
-	zcache = new ZCache(&zlc_args, mf, sf, ze, sbf);
+	zcache = new ZCache(&zlc_args, mf, sf, ze, sbf, new ZCompressionStub());
 	ThreadFactory *thread_factory = new ThreadFactory_Cheesy(context->zdt);
 	PerfMeasureIfc* pmi = new PerfMeasure(context->zdt);
+	zcache->configure_perf_measure_ifc(pmi);
 
 	ZFileClient *zclient = NULL;
 	if (zlc_args.origin_zftp!=NULL)

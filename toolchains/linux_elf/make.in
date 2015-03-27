@@ -80,8 +80,9 @@ CRYPTO_DIR=$(ZOOG_ROOT)/toolchains/linux_elf/crypto
 #		--inception `date +%s` \
 #		--expires `echo \`date +%s\` + 31536000 | bc ` \
 
-$(BUILD)/%.signed: $(BUILD)/%.cert $(BUILD)/%.raw
-	  $(SCRIPTS_DIR)/signed_binary_bundler.py $^ $@
+$(BUILD)/%.signed: $(BUILD)/%.cert $(BUILD)/%.raw $(SCRIPTS_DIR)/signed_binary_bundler.py
+	@echo Bundling $@
+	@$(SCRIPTS_DIR)/signed_binary_bundler.py $(filter-out %.py,$^) $@
 
 -include $(patsubst %.S,$(BUILD)/%.dep,$(patsubst %.cpp,$(BUILD)/%.dep,$(patsubst %.c,$(BUILD)/%.dep,$(DEP_SRCS))))
 -include $(patsubst %.o,$(BUILD)/%.dep,$(MODULE_OBJS))

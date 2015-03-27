@@ -14,6 +14,11 @@ uint32_t Padding::get_size()
 	return size;
 }
 
+const char* Padding::get_type()
+{
+	return "Padding";
+}
+
 void Padding::emit(FILE *fp)
 {
 	char *buf = (char*) malloc(size);

@@ -43,10 +43,25 @@
 #include "HostAlarms.h"
 #include "NetBufferTable.h"
 #include "DebugServer.h"
-#include "ChannelWriter.h"
+#include "ChannelWriterClient.h"
 #include "CanvasDownsampler.h"
+#include "Dispatcher.h"
 
 class CoreDumpTimer;
+
+#if 0
+class CtorDbg1 { public: CtorDbg1() { PDBG("CtorDbg1\n"); } };
+class CtorDbg2 { public: CtorDbg2() { PDBG("CtorDbg2\n"); } };
+class CtorDbg3 { public: CtorDbg3() { PDBG("CtorDbg3\n"); } };
+class CtorDbg4 { public: CtorDbg4() { PDBG("CtorDbg4\n"); } };
+
+class DbgLock {
+private: Lock _lock;
+public: 
+	void lock() { PDBG("lock; this 0x%08x\n", (int) this); _lock.lock(); }
+	void unlock() { PDBG("unlock\n"); _lock.unlock(); }
+};
+#endif
 
 class GenodePAL
 	: public CoreDumpInvokeIfc
@@ -76,9 +91,6 @@ private:
 	uint8_t *boot_block;
 	DebugServer debug_server;
 
-	// multiplexed bulk disk I/O interface
-	ChannelWriter channel_writer;
-
 	CanvasDownsamplerManager canvas_downsampler_manager;
 
 	// core dump stuff
@@ -88,9 +100,14 @@ private:
 		// timer is deprecated now that we have a control interface
 		// via port 1111
 
-	enum { MIN_ALLOCATION_UNIT = 4<<20 };	/* 4MB */
-
 	uint32_t next_allocation_location;	/* avoids low-memory allocations */
+
+	// multiplexed bulk disk I/O interface
+	ChannelWriterClient *channel_writer;
+
+	//////////////////////////////////////////////////////////////////////////
+
+	enum { MIN_ALLOCATION_UNIT = 4<<20 };	/* 4MB */
 
 	void idle();
 	void launch(uint8_t *eip, uint8_t *esp, ZoogDispatchTable_v1 *zdt);
@@ -109,27 +126,19 @@ private:
 	friend class PalLocker;
 
 	// must be used with pal locked.
-	class Dispatcher {
-	private:
-		GenodePAL *pal;
-		int idx;
-		ZoogMonitor::Session::Dispatch *dispatch;
-	public:
-		Dispatcher(GenodePAL *pal, ZoogMonitor::Session::DispatchOp opcode);
-		~Dispatcher();
-		inline ZoogMonitor::Session::Dispatch *d() { return dispatch; }
-		inline void rpc();
-	};
 	friend class Dispatcher;
+	ZoogMonitor::Session::Dispatch* assign_dispatch_slot(int* out_idx);
 
 	static void debug_logfile_append(const char *logfile_name, const char *message);
 	static uint32_t debug_get_link_mtu();
+	static ViewportID debug_create_toplevel_window();
 	static void *lookup_extension(const char *name);
 	static void *allocate_memory(size_t length);
 	static void free_memory(void *base, size_t length);
 	static bool thread_create(zoog_thread_start_f *func, void *stack);
 	static void thread_exit(void);
 	static void x86_set_segments(uint32_t fs, uint32_t gs);
+	static void launch_application(SignedBinary *signed_binary);
 	static void zutex_wait(ZutexWaitSpec *specs, uint32_t count);
 	static int zutex_wake(
 		uint32_t *zutex,
@@ -147,16 +156,46 @@ private:
 	static void get_time(uint64_t *out_time);
 	static void set_clock_alarm(uint64_t scheduled_time);
 
-	static void accept_canvas(
+// pal_ui.h
+#if 0
+	// Don't need these immediately.
+	// landlord calls
+	zf_zoog_repossess_viewport	zoog_repossess_viewport;
+	zf_zoog_get_deed_key		zoog_get_deed_key;
+	// tenant calls
+	zf_zoog_transfer_viewport	zoog_transfer_viewport;
+	static bool verify_label(ZCertChain* chain);
+		// can stub this one out, too.
+#endif
+	static void sublet_viewport(
+		ViewportID tenant_viewport,
+		ZRectangle *rectangle,
+		ViewportID *out_landlord_viewport,
+		Deed *out_deed);
+
+	static void accept_viewport(
+		Deed *deed,
+		ViewportID *out_tenant_viewport,
+		DeedKey *out_deed_key);
+
+	static void repossess_viewport(
+		ViewportID landlord_viewport);
+
+	static void get_deed_key(
+		ViewportID landlord_viewport,
+		DeedKey *out_deed_key);
+
+	static void transfer_viewport(
+		ViewportID tenant_viewport,
+		Deed *out_deed);
+
+	static bool verify_label(ZCertChain* chain);
+	static void map_canvas(
 		ViewportID viewport_id, PixelFormat *known_formats, int num_formats,
 		ZCanvas *out_canvas);
-	static void update_canvas(ZCanvasID canvas_id,
-		uint32_t x, uint32_t y, uint32_t width, uint32_t height);
+	static void unmap_canvas(ZCanvasID canvas_id);
+	static void update_canvas(ZCanvasID canvas_id, ZRectangle *rectangle);
 	static void receive_ui_event(ZoogUIEvent *out_event);
-	static ViewportID delegate_viewport(ZCanvasID v, VendorIdentity *vendor);
-	static void update_viewport(
-		ViewportID viewport_id, uint32_t x, uint32_t y, uint32_t w, uint32_t h);
-	static void close_canvas(ZCanvasID canvas_id);
 
 	static void unimpl(void);
 

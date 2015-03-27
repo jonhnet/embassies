@@ -30,6 +30,7 @@ int main(void)
 
 //	genode_thread_test();
 
+	PDBG("calling GenodePAL ctor\n");
 	GenodePAL pal;
 	return 0;
 }

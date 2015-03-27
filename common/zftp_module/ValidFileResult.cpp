@@ -27,7 +27,9 @@ uint32_t ValidFileResult::get_reply_size(ZFileRequest *req)
 
 void ValidFileResult::fill_reply(Buf* vbuf, ZFileRequest *req)
 {
-	ZFTPDataPacket *zdp = (ZFTPDataPacket *) vbuf->data();
+	ZFTPDataPacket *zdp =
+		(ZFTPDataPacket *) vbuf->write_header(sizeof(ZFTPDataPacket));
+
 	zdp->header.code = z_htong(zftp_reply_data, sizeof(zdp->header.code));
 	zdp->hash_len = z_htong(sizeof(hash_t), sizeof(zdp->hash_len));
 	zdp->zftp_lg_block_size = z_htong(
@@ -47,11 +49,16 @@ void ValidFileResult::fill_reply(Buf* vbuf, ZFileRequest *req)
 	zdp->data_start = z_htong(range.start(), sizeof(zdp->data_start));
 	zdp->data_end = z_htong(range.end(), sizeof(zdp->data_end));
 
+	CompressionContext context = vbuf->get_compression_context();
+	zdp->compression_context.state_id = z_htong(context.state_id, sizeof(zdp->compression_context.state_id));
+	zdp->compression_context.seq_id = z_htong(context.seq_id, sizeof(zdp->compression_context.seq_id));
+
 	zdp->num_merkle_records = z_htong(
 		req->get_num_tree_locations(),
 		sizeof(zdp->num_merkle_records));
 
-	ZFTPMerkleRecord *zmr = (ZFTPMerkleRecord *) (&zdp[1]);
+	ZFTPMerkleRecord *zmr = (ZFTPMerkleRecord *)
+		(ZFTPMerkleRecord *) vbuf->write_header(sizeof(ZFTPMerkleRecord)*req->get_num_tree_locations());
 	for (uint32_t idx=0; idx<req->get_num_tree_locations(); idx++)
 	{
 		uint32_t location = req->get_tree_location(idx);
@@ -60,13 +67,23 @@ void ValidFileResult::fill_reply(Buf* vbuf, ZFileRequest *req)
 		zmr[idx].hash = zcf->get_validated_merkle_record(location)->hash;
 	}
 
-	uint8_t *data = (uint8_t*) &zmr[req->get_num_tree_locations()];
-
 	// insert requested padding
-	memset(data, 0, req->get_padding_request());
-	data += req->get_padding_request();
+	uint8_t *padding =
+		(uint8_t*) vbuf->write_header(req->get_padding_request());
+	memset(padding, 0, req->get_padding_request());
 
-	zcf->read(vbuf, (data - vbuf->data()), range.start(), range.size());
+#if DEBUG_COMPRESSION
+	vbuf->debug_compression()->start_data(range.start(), range.size());
+#endif // DEBUG_COMPRESSION
+	zcf->write_blocks_to_buf(vbuf, 0, range.start(), range.size());
+#if DEBUG_COMPRESSION
+	vbuf->debug_compression()->end_data();
+#endif // DEBUG_COMPRESSION
+
+	// notice we go back and fill in the payload size once we know it
+	// (after a possible compression on actual payload data)
+	zdp->payload_size =
+		z_htong(vbuf->get_payload_len(), sizeof(zdp->payload_size));
 }
 
 bool ValidFileResult::is_error()
@@ -91,9 +108,9 @@ void ValidFileResult::read_set(BlockSet *set, uint8_t *buf, uint32_t size)
 }
 #endif
 
-void ValidFileResult::read(Buf* vbuf, uint32_t offset, uint32_t size)
+void ValidFileResult::write_payload_to_buf(Buf* vbuf, uint32_t data_offset, uint32_t size)
 {
-	zcf->read(vbuf, 0, offset, size);
+	zcf->write_blocks_to_buf(vbuf, 0, data_offset, size);
 }
 
 bool ValidFileResult::is_dir()

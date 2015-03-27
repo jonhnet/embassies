@@ -25,12 +25,15 @@
 #include "xax_posix_emulation.h"
 #include "ZLCArgs.h"
 #include "ZFTPDecoder.h"
+#include "FastFetchHelper.h"
 
 class ZLCVFS;
 
 class ZLCHandle : public ZFTPDecoder {
+// A ZLCHandle reads bytes out of a ZFTPCachedFile object,
+// assembling them (with memcpy) to satisfy the read.
 public:
-	ZLCHandle(ZLCVFS *zlcvfs, ZCachedFile *zcf, char *url_for_stat);
+	ZLCHandle(ZLCVFS *zlcvfs, ZCachedFile *zcf, char *url_for_stat, TraceCollectorHandle* traceHandle);
 	virtual ~ZLCHandle();
 
 	virtual uint64_t get_file_len();
@@ -41,10 +44,12 @@ private:
 
 	ZLCVFS *zlcvfs;
 	ZCachedFile *zcf;
-
 };
 
 class ZLCZCBHandle : public ZFTPDecoder {
+// A ZLCZCBHandle reads bytes out of a contiguous ZCB (one that came
+// from a one-shot Zarfile load), and, if the conditions are satisfied,
+// can fast_mmap them out by handing out a pointer straight into the raw data.
 public:
 	ZLCZCBHandle(ZLCVFS *zlcvfs, ZeroCopyBuf *zcb);
 	virtual ~ZLCZCBHandle();
@@ -62,7 +67,7 @@ private:
 
 class ZLCVFS : public XaxVFSPrototype {
 public:
-	ZLCVFS(XaxPosixEmulation* xpe, ZLCEmit* ze);
+	ZLCVFS(XaxPosixEmulation* xpe, ZLCEmit* ze, TraceCollector* traceCollector);
 	virtual XaxVFSHandleIfc *open(
 		XfsErr *err, XfsPath *path, int oflag, XVOpenHooks *open_hooks = NULL);
 
@@ -74,11 +79,7 @@ private:
 	friend class ZLCZCBHandle;
 	inline ZCache *get_zcache() { return zcache; }
 
-	void _evil_get_server_addresses(
-		UDPEndpoint *out_lookup_ep,
-		UDPEndpoint *out_zftp_ep);
 	static void start_file_client(void *v_zfc);
-	bool _find_fast_fetch_origin(UDPEndpoint *out_origin);
 	XaxVFSHandleIfc *_fast_fetch_zarfile(const char *fetch_url);
 	
 
@@ -86,8 +87,10 @@ private:
 	ZCache *zcache;
 	ZLCArgs zlcargs;
 	SocketFactory *socket_factory;
+	FastFetchHelper* fast_fetch_helper;
 	ZLCEmit *ze;
 	ZFileClient *zfile_client;
 	ZLookupClient *zlookup_client;
+	TraceCollector* traceCollector;
 };
 #endif // __cplusplus

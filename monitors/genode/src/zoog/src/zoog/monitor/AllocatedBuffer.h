@@ -37,8 +37,6 @@
 extern char _binary_paltest_raw_start;
 extern char _binary_paltest_raw_end;
 
-using namespace Genode;
-
 namespace ZoogMonitor {
 	
 	class AllocatedBuffer {
@@ -48,66 +46,25 @@ namespace ZoogMonitor {
 		Ram_dataspace_capability _dataspace_cap;
 		void *_host_mapping;
 
-		AllocatedBuffer *retrieve_buffer(Session::Zoog_genode_net_buffer_id buffer_id);
-
 	public:
 
-		Dataspace_capability cap() { return _dataspace_cap; }
+		Dataspace_capability cap();
 
-		uint32_t capacity() { return _allocated_payload_size; }
+		uint32_t capacity();
 
-		Session::Zoog_genode_net_buffer_id buffer_id() {
-			return ((Session::Zoog_genode_net_buffer_id *) _host_mapping)[0];
-		}
+		Session::Zoog_genode_net_buffer_id buffer_id();
 
-		ZoogNetBuffer *znb() {
-			return (ZoogNetBuffer *)
-				&((Session::Zoog_genode_net_buffer_id *) _host_mapping)[1];
-		}
+		ZoogNetBuffer *znb();
 
-		void *payload() {
-			return &znb()[1];
-		}
+		void *payload();
 
-		static uint32_t hash(const void *v_a) {
-			uint32_t result = ((AllocatedBuffer*)v_a)->_buffer_id;
-//			PDBG("hashed %08x giving %d", v_a, result);
-			return result;
-		}
+		static uint32_t hash(const void *v_a);
+		static int cmp(const void *v_a, const void *v_b);
 
-		static int cmp(const void *v_a, const void *v_b) {
-			AllocatedBuffer *a = (AllocatedBuffer *) v_a;
-			AllocatedBuffer *b = (AllocatedBuffer *) v_b;
-			int result = (a->_buffer_id) - (b->_buffer_id);
-//			PDBG("cmp %08x,%08x : %d, %d giving %d",
-//				v_a, v_b, a->_buffer_id, b->_buffer_id, result);
-			return result;
-		}
-
-		AllocatedBuffer(Session::Zoog_genode_net_buffer_id buffer_id, uint32_t payload_size) {
-			_buffer_id = buffer_id;
-			_dataspace_cap = env()->ram_session()->alloc(
-				sizeof(Session::Zoog_genode_net_buffer_id)
-				+ payload_size
-				+ sizeof(ZoogNetBuffer));
-			_host_mapping = env()->rm_session()->attach(_dataspace_cap);
-			((Session::Zoog_genode_net_buffer_id *) _host_mapping)[0] = buffer_id;
-			znb()->capacity = payload_size;
-			_allocated_payload_size = payload_size;
-		}
-
+		AllocatedBuffer(Session::Zoog_genode_net_buffer_id buffer_id, uint32_t payload_size);
 		// key ctor
-		AllocatedBuffer(Session::Zoog_genode_net_buffer_id buffer_id) {
-			_buffer_id = buffer_id;
-			_host_mapping = NULL;
-		}
+		AllocatedBuffer(Session::Zoog_genode_net_buffer_id buffer_id);
 
-		~AllocatedBuffer() {
-			if (_host_mapping==NULL) {
-				return;	// this is just a key
-			}
-			env()->rm_session()->detach(_host_mapping);
-			env()->ram_session()->free(_dataspace_cap);
-		}
+		~AllocatedBuffer();
 	};
 }

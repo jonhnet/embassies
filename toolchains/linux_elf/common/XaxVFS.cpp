@@ -39,6 +39,10 @@ void* XaxVFSHandlePrototype::fast_mmap(
 	return NULL;
 }
 
+void XaxVFSHandlePrototype::trace_mmap(size_t len, uint64_t offset, bool fast)
+{
+}
+
 void XaxVFSHandlePrototype::write(
 	XfsErr *err, const void *src, size_t len, uint64_t offset)
 {

@@ -34,10 +34,11 @@ public:
 
 	BlitProviderCanvasIfc *create_canvas(
 		ZCanvasID canvas_id,
-		WindowRect *wr,
+		ZRectangle *wr,
 		BlitCanvasAcceptorIfc *canvas_acceptor,
 		ProviderEventDeliveryIfc *event_delivery_ifc,
-		BlitProviderCanvasIfc *parent);
+		BlitProviderCanvasIfc *parent,
+		const char* window_label);
 };
 
 

@@ -5,11 +5,12 @@
 #include "zftp_unix_metadata_format.h"
 #include "xax_posix_emulation.h"	// xnull_fstat64
 
-ZFTPDecoder::ZFTPDecoder(MallocFactory *mf, XaxVFSIfc *xvfs_for_stat, char *url_for_stat)
+ZFTPDecoder::ZFTPDecoder(MallocFactory *mf, XaxVFSIfc *xvfs_for_stat, char *url_for_stat, TraceCollectorHandle* traceHandle)
 {
 	this->mf = mf;
 	this->xvfs_for_stat = xvfs_for_stat;
 	this->url_for_stat = url_for_stat;
+	this->traceHandle = traceHandle;
 
 	dir_loaded = false;
 	dirent_count = -1;
@@ -27,6 +28,7 @@ ZFTPDecoder::~ZFTPDecoder()
 	{
 		mf_free(mf, url_for_stat);
 	}
+	delete traceHandle;
 }
 
 ZFTPDirectoryRecord *ZFTPDecoder::_read_record(uint32_t offset)
@@ -90,9 +92,21 @@ void ZFTPDecoder::read(
 		return;
 	}
 
+	if (traceHandle!=NULL)
+	{
+		traceHandle->read(len, offset);
+	}
 	_internal_read(dst, len, offset);
 
 	*err = XFS_NO_ERROR;
+}
+
+void ZFTPDecoder::trace_mmap(size_t len, uint64_t offset, bool fast)
+{
+	if (traceHandle!=NULL)
+	{
+		traceHandle->mmap(len, offset, fast);
+	}
 }
 
 void ZFTPDecoder::xvfs_fstat64(

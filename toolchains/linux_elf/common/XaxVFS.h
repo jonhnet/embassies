@@ -57,6 +57,11 @@ public:
 	virtual void* fast_mmap(size_t len, uint64_t offset) = 0;
 		// returns NULL if no fast-path is available.
 
+	virtual void trace_mmap(size_t len, uint64_t offset, bool fast) = 0;
+		// Indicade that an mmap has occured (fast or otherwise);
+		// used for recording traces that guide zarfile generation.
+		// Purely advisory; no behavior is required.
+
 	// file-type interface -- wrapper maintains a file pointer,
 	// computes safe len values automatically.
 	virtual uint64_t get_file_len() = 0;	// in bytes
@@ -96,6 +101,7 @@ public:
 	virtual void read(
 		XfsErr *err, void *dst, size_t len, uint64_t offset);
 	virtual void* fast_mmap(size_t len, uint64_t offset);
+	virtual void trace_mmap(size_t len, uint64_t offset, bool fast);
 	virtual void write(
 		XfsErr *err, const void *src, size_t len, uint64_t offset);
 	virtual uint32_t get_dir_len(XfsErr *err);

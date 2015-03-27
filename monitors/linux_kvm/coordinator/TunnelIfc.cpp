@@ -48,7 +48,11 @@ TunnelIfc::TunnelIfc(Router *router, AppLink *app_link, TunIDAllocator* tunid)
 	this->router = router;	// where we hand off incoming packets
 
 	const char *tun_device = "/dev/net/tun";
+
+#if 0
 	tun_fd = open(tun_device, O_RDWR);
+#endif
+	tun_fd = tunid->open_tunnel();
 	lite_assert(tun_fd>=0);
 
 	int rc;
@@ -62,7 +66,8 @@ TunnelIfc::TunnelIfc(Router *router, AppLink *app_link, TunIDAllocator* tunid)
 		lite_assert(rc==0);
 	}
 	
-	int ioctlsocket = tunid->open_tunnel();
+
+	int ioctlsocket = socket(PF_INET, SOCK_DGRAM, IPPROTO_IP);
 
 	struct ifreq ifr;
 	tunid->setup_ifreq(&ifr);

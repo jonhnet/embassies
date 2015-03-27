@@ -18,19 +18,20 @@
 
 #include <base/stdint.h>
 
-#include "ChannelWriter.h"
+#include "ChannelWriterClient.h"
 
 using namespace Genode;
+using namespace ZoogMonitor;
 
 class CoreWriter
 {
-	ChannelWriter *_cw;
+	ChannelWriterClient *_cw;
 	uint32_t dbg_size;
 	uint32_t dbg_count;
 	uint32_t dbg_ui_units;
 
 public:
-	CoreWriter(ChannelWriter *cw, uint32_t size);
+	CoreWriter(ChannelWriterClient *cw, uint32_t size);
 	~CoreWriter();
 	void set_dbg_size(uint32_t size);
 	void write(void *ptr, int len);

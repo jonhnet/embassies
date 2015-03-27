@@ -3,11 +3,12 @@
 #include "zftp_protocol.h"
 #include "zlc_util.h"
 
-ZFileReplyFromServer::ZFileReplyFromServer(ZeroCopyBuf *zcb, ZLCEmit *ze)
+ZFileReplyFromServer::ZFileReplyFromServer(ZeroCopyBuf *zcb, ZLCEmit *ze, ZCompressionIfc* zcompression)
 {
 	this->_valid = false;
 	this->zdp = NULL;
 	this->zcb = zcb;
+	this->_uncompressed_zcb = NULL;
 
 	ZLC_VERIFY(ze, zcb->len() >= (int) sizeof(ZFTPReplyHeader));
 
@@ -43,6 +44,33 @@ ZFileReplyFromServer::ZFileReplyFromServer(ZeroCopyBuf *zcb, ZLCEmit *ze)
 
 	_data_range = DataRange(Z_NTOHG(zdp->data_start), Z_NTOHG(zdp->data_end));
 
+	CompressionContext context;
+	context.state_id = Z_NTOHG(zdp->compression_context.state_id);
+	context.seq_id = Z_NTOHG(zdp->compression_context.seq_id);
+
+	if (context.state_id != ZFTP_NO_COMPRESSION)
+	{
+		if (_payload_len==0)
+		{
+			// nothing to decompress; no stream there for zlib to read.
+			// we'll leave _uncompressed_zcb==NULL, so get_payload()==_payload,
+			// but that's okay, because get_payload_len()==0.
+		}
+		else
+		{
+			ZStreamIfc* zs =
+				zcompression->get_stream(context, ZCompressionIfc::DECOMPRESS);
+			// +1 because zlib is funny that way. :v(
+			_uncompressed_zcb = zs->decompress(_payload, _payload_len, _data_range.size()+1);
+			zs->advance_seq();
+			if (_uncompressed_zcb->len() != _data_range.size())
+			{
+				ZLC_COMPLAIN(ze, "short decompression output\n");
+				goto fail;
+			}
+		}
+	}
+
 	_valid = true;
 
 fail:
@@ -51,6 +79,7 @@ fail:
 
 ZFileReplyFromServer::~ZFileReplyFromServer()
 {
+	delete _uncompressed_zcb;
 	delete zcb;
 }
 
@@ -90,36 +119,30 @@ ZFTPMerkleRecord *ZFileReplyFromServer::get_merkle_record(uint32_t i)
 	lite_assert(i<num_merkle_records);
 	return &raw_records[i];
 }
+
 uint8_t *ZFileReplyFromServer::get_payload()
 {
 	assert_valid();
-	return _payload;
+	if (_uncompressed_zcb!=NULL)
+	{
+		return _uncompressed_zcb->data();
+	}
+	else
+	{
+		return _payload;
+	}
 }
 
 uint32_t ZFileReplyFromServer::get_payload_len()
 {
 	assert_valid();
-	return _payload_len;
+	if (_uncompressed_zcb!=NULL)
+	{
+		return _uncompressed_zcb->len();
+	}
+	else
+	{
+		return _payload_len;
+	}
 }
 
-#if 0	// gonna have to change
-uint8_t *ZFileReplyFromServer::access_block(uint32_t block_num, uint32_t *out_data_len)
-{
-	assert_valid();
-	lite_assert(block_num >= get_first_block_num());
-	uint32_t packet_block_idx = block_num - get_first_block_num();
-	uint32_t data_len = ZFTP_BLOCK_SIZE;
-	uint32_t payload_start = packet_block_idx*ZFTP_BLOCK_SIZE;
-	uint32_t payload_end = (packet_block_idx+1)*ZFTP_BLOCK_SIZE;
-	if (get_payload_len() < payload_start )
-	{
-		data_len = 0;
-	}
-	else if (get_payload_len() < payload_end)
-	{
-		data_len = get_payload_len() - payload_start;
-	}
-	*out_data_len = data_len;
-	return _payload + payload_start;
-}
-#endif

@@ -28,6 +28,9 @@ public:
 	virtual uint32_t get_size();
 	void connect_string(uint32_t string_index, uint32_t string_len);
 	void connect_chunks(uint32_t chunk_index, uint32_t chunk_count);
+	virtual const char* get_type();
 	virtual void emit(FILE *fp);
 	uint32_t get_file_len();
+	bool is_dir();
+	bool is_enoent();
 };

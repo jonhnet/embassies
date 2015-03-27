@@ -147,8 +147,7 @@ void map_one_segment(ElfLoaded *el, Elf32_Phdr *phdr, bool copyin, Elf32_Addr ba
 
 	if (el->base==-1)
 	{
-		// unfounded optimism:
-		// first mapping probably starts at beginning! wee!
+		// voodoo: first mapping probably starts at beginning! wee!
 		el->base = mapping_start+el->displace;
 		el->ehdr = (Elf32_Ehdr *) el->base;
 		lite_assert(data_offset == 0);

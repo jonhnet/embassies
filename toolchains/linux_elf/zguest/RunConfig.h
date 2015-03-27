@@ -26,7 +26,7 @@ public:
 	RunConfig(MallocFactory *mf, const char **incoming_envp);
 
 	void add_zone(Zone *zone);
-	void add_vnc();
+	Zone* add_vnc();
 	Zone *add_app(const char *appname);
 //	Zone *add_zone(const char *label, int libc_brk_heap_mb, const char *repos_path);
 

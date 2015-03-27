@@ -7,7 +7,8 @@
 GBlitProviderCanvas::GBlitProviderCanvas(
 	GBlitProvider *gblit_provider,
 	ZCanvasID canvas_id,
-	WindowRect *wr,
+	ZRectangle *wr,
+	const char* window_label,
 	GCanvasAcceptorIfc *gacceptor,
 	ProviderEventDeliveryIfc *event_delivery_ifc,
 	GBlitProviderCanvas *parent_gbc,
@@ -17,7 +18,7 @@ GBlitProviderCanvas::GBlitProviderCanvas(
 	  event_delivery_ifc(event_delivery_ifc)
 {
 	this->canvas_id = canvas_id;
-	open_nitpicker_window(wr);
+	open_nitpicker_window(wr, window_label);
 	gacceptor->set_fb_dataspace(nitpicker->framebuffer()->dataspace());
 
 	ZCanvas *canvas = gacceptor->get_zoog_canvas();
@@ -36,12 +37,12 @@ GBlitProviderCanvas::~GBlitProviderCanvas()
 {
 }
 
-void GBlitProviderCanvas::open_nitpicker_window(WindowRect *wr)
+void GBlitProviderCanvas::open_nitpicker_window(ZRectangle *wr, const char* window_label)
 {
 	nitpicker = new Nitpicker::Connection(wr->width, wr->height);
 	_cap = nitpicker->create_view();
 	Nitpicker::View_client vc = Nitpicker::View_client(_cap);
-	vc.title("A window");
+	vc.title(window_label);
 	vc.viewport(wr->x, wr->y, wr->width, wr->height, 0, 0, true);
 	vc.stack(Nitpicker::View_capability(), true, true);
 
@@ -56,13 +57,13 @@ ZCanvasID GBlitProviderCanvas::get_canvas_id()
 	return canvas_id;
 }
 
-void GBlitProviderCanvas::update_image(WindowRect *wr)
+void GBlitProviderCanvas::update_image(ZRectangle *wr)
 {
 	nitpicker->framebuffer()->refresh(
 		wpos.x+wr->x, wpos.y+wr->y, wr->width, wr->height);
 }
 
-void GBlitProviderCanvas::reconfigure(WindowRect *wr)
+void GBlitProviderCanvas::reconfigure(ZRectangle *wr)
 {
 	PDBG("unimpl");
 	lite_assert(false);

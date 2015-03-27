@@ -14,13 +14,14 @@
 #include "corefile.h"
 #include "zoog_qsort.h"
 #include "CoreWriter.h"
+#include "zoog_network_order.h"
 
 #ifndef ZOOG_ROOT
 #error ZOOG_ROOT not defined on compile command line
 #endif
 
-//#define DBG_HACK_BOOT_PATH_RAW ZOOG_ROOT "/toolchains/linux_elf/paltest/build/paltest.signed"
-#define DBG_HACK_BOOT_PATH_RAW ZOOG_ROOT "/toolchains/linux_elf/elf_loader/build/elf_loader.vendor_a.signed"
+#define DBG_HACK_BOOT_PATH_RAW ZOOG_ROOT "/toolchains/linux_elf/paltest/build/paltest.signed"
+//#define DBG_HACK_BOOT_PATH_RAW ZOOG_ROOT "/toolchains/linux_elf/elf_loader/build/elf_loader.vendor_a.signed"
 
 using namespace Genode;
 
@@ -44,6 +45,7 @@ GenodePAL::PalLocker::PalLocker(GenodePAL *pal, int line)
 	: pal(pal),
 	  line(line)
 {
+//	PDBG("PalLocker(this 0x%08x, pal 0x%08x)\n", (int) this, (int) pal);
 	pal->lock.lock();
 //	PDBG("Line %d has the lock", line);
 	this->t = pal->thread_table.lookup_me();
@@ -55,34 +57,6 @@ GenodePAL::PalLocker::~PalLocker()
 	t->clear_core_state();
 //	PDBG("Line %d releases the lock", line);
 	pal->lock.unlock();
-}
-
-//////////////////////////////////////////////////////////////////////////////
-
-GenodePAL::Dispatcher::Dispatcher(GenodePAL *pal, ZoogMonitor::Session::DispatchOp opcode)
-	: pal(pal)
-{
-	for (idx=0; idx<MAX_DISPATCH_SLOTS; idx++) {
-		if (!pal->dispatch_slot_used[idx])
-		{
-			pal->dispatch_slot_used[idx] = true;
-			break;
-		}
-	}
-	lite_assert(idx < MAX_DISPATCH_SLOTS);	// ran out of slots!
-	dispatch = &pal->dispatch_region[idx];
-	dispatch->opcode = opcode;
-}
-
-GenodePAL::Dispatcher::~Dispatcher()
-{
-	pal->dispatch_slot_used[idx] = false;
-}
-
-void GenodePAL::Dispatcher::rpc()
-{
-	//PDBG("rpc(%d)", dispatch->opcode);
-	pal->zoog_monitor.dispatch_message(idx);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -99,11 +73,23 @@ GenodePAL::GenodePAL()
 	  canvas_downsampler_manager(mf),
 	  next_allocation_location(0x10000000)
 {
+	PDBG("dbg: GenodePAL ctor\n");
 	if (g_pal!=NULL) {
 		throw Exception();
 	}
 	g_pal = this;
 
+//	PDBG("GenodePAL: start-gate init\n");
+	// Silly start-gate mechanism -- wait for monitor to tell us when to go.
+	Signal_receiver signal_receiver;
+	Signal_context start_gate_receive_context;
+	Signal_context_capability start_gate_sigh_cap =
+		signal_receiver.manage(&start_gate_receive_context);
+	zoog_monitor.start_gate_sigh(start_gate_sigh_cap);
+//	PDBG("GenodePAL: start-gate wait\n");
+	signal_receiver.wait_for_signal();
+
+//	PDBG("GenodePAL: start-gate complete\n");
 	for (int i=0; i<MAX_DISPATCH_SLOTS; i++) { dispatch_slot_used[i] = false; }
 	Dataspace_capability dispatch_region_cap
 		= zoog_monitor.map_dispatch_region(MAX_DISPATCH_SLOTS);
@@ -111,27 +97,34 @@ GenodePAL::GenodePAL()
 	dispatch_region = (ZoogMonitor::Session::Dispatch *)
 		env()->rm_session()->attach(dispatch_region_dataspace);
 
-	channel_writer.write_one("stderr", "Test output\n");
+	// channel_writer cannot be initialized until g_pal exists and
+	// dispatch region is mapped, since it makes a monitor rpc.
+	ZoogNetBuffer* channel_writer_znb = alloc_net_buffer(1<<20);
+	ZoogMonitor::Session::Zoog_genode_net_buffer_id channel_writer_buffer_id =
+		g_pal->net_buffer_table.lookup(channel_writer_znb, "channel_writer");
+	channel_writer = new ChannelWriterClient(
+		this, channel_writer_znb, channel_writer_buffer_id);
+
 #if 0
 		timer.msleep(1000);
-	channel_writer.write_one("test", "bar\n");
+	channel_writer->write_one("test", "bar\n");
 		timer.msleep(1000);
-	channel_writer.write_one("test", "bazbooooooger\n");
+	channel_writer->write_one("test", "bazbooooooger\n");
 		timer.msleep(1000);
 
 	uint8_t buf[32768];
 	memset(buf, 0x7, sizeof(buf));
-	channel_writer.open("data", sizeof(buf));
-	channel_writer.write(buf, sizeof(buf));
-	channel_writer.close();
+	channel_writer->open("data", sizeof(buf));
+	channel_writer->write(buf, sizeof(buf));
+	channel_writer->close();
 		timer.msleep(1000);
 
-	channel_writer.write_one("test", "a little string\n");
+	channel_writer->write_one("test", "a little string\n");
 
 	for (int i=0; i<100; i++)
 	{
 		timer.msleep(1000);
-		channel_writer.write_one("test", "tick\n");
+		channel_writer->write_one("test", "tick\n");
 	}
 #endif
 
@@ -155,8 +148,8 @@ GenodePAL::GenodePAL()
 	zdt.zoog_x86_set_segments = x86_set_segments;
 	/*
 	zdt.zoog_exit = (zf_zoog_exit) unimpl;
-	zdt.zoog_launch_application = (zf_zoog_launch_application) unimpl;
 	*/
+	zdt.zoog_launch_application = launch_application;
 	zdt.zoog_zutex_wait = zutex_wait;
 	zdt.zoog_zutex_wake = zutex_wake;
 	zdt.zoog_get_alarms = get_alarms;
@@ -170,15 +163,26 @@ GenodePAL::GenodePAL()
 	zdt.zoog_get_time = get_time;
 	zdt.zoog_set_clock_alarm = set_clock_alarm;
 
-	zdt.zoog_accept_canvas = accept_canvas;
+	zdt.zoog_sublet_viewport = sublet_viewport;
+	zdt.zoog_repossess_viewport = repossess_viewport;
+	zdt.zoog_get_deed_key = get_deed_key;
+
+	// tenant calls
+	zdt.zoog_accept_viewport = accept_viewport;
+	zdt.zoog_transfer_viewport = transfer_viewport;
+	zdt.zoog_verify_label = verify_label;
+	zdt.zoog_map_canvas = map_canvas;
+	zdt.zoog_unmap_canvas = unmap_canvas;
 	zdt.zoog_update_canvas = update_canvas;
 	zdt.zoog_receive_ui_event = receive_ui_event;
-	zdt.zoog_delegate_viewport = delegate_viewport;
-	zdt.zoog_update_viewport = update_viewport;
-	zdt.zoog_close_canvas = close_canvas;
-//	zdt.zoog_close_viewport = close_viewport;
 
+#if 1
+	boot_block = env()->rm_session()->attach(boot_block_dataspace);
+#else
+	// why am I hardcoding the attach-at!? Maybe this was before we had
+	// debug_mmap.
 	boot_block = env()->rm_session()->attach_at(boot_block_dataspace, 0x120000);
+#endif
 //	PDBG("That address has");
 //	PDBG("byte %02x", ((uint8_t*)0x54c7b)[0]);
 //	PDBG("boot_block = %08x, end = %08x",
@@ -188,7 +192,7 @@ GenodePAL::GenodePAL()
 #define HACK_LOADER_PATH ../../toolchains/linux_elf/elf_loader/build/elf_loader_zguest.raw
 	{
 		char buf[256];
-		snprintf(buf, sizeof(buf), "L %s 0x%08x",
+		snprintf(buf, sizeof(buf), "L %s 0x%08x\n",
 			DBG_HACK_BOOT_PATH_RAW,
 			(uint32_t) boot_block);
 		debug_logfile_append("mmap", buf);
@@ -219,13 +223,22 @@ GenodePAL::GenodePAL()
 void GenodePAL::debug_logfile_append(const char *logfile_name, const char *message)
 {
 	PWRN("%s: %s", logfile_name, message);
-//	PDBG("g_pal: %p cw %p", g_pal, &g_pal->channel_writer);
-	g_pal->channel_writer.write_one(logfile_name, message);
+//	PDBG("g_pal: %p cw %p", g_pal, g_pal->channel_writer);
+	g_pal->channel_writer->write_one(logfile_name, message);
 }
 
 uint32_t GenodePAL::debug_get_link_mtu()
 {
 	return 10220;
+}
+
+ViewportID GenodePAL::debug_create_toplevel_window()
+{
+	PalLocker lock(g_pal, __LINE__);
+
+	Dispatcher d(g_pal, ZoogMonitor::Session::do_new_toplevel_viewport);
+	d.rpc();
+	return d.d()->un.new_toplevel_viewport.out.viewport_id;
 }
 
 void *GenodePAL::lookup_extension(const char *name)
@@ -235,9 +248,13 @@ void *GenodePAL::lookup_extension(const char *name)
 	{
 		return (void*) debug_logfile_append;
 	}
-	else if (strcmp(name, DEBUG_GET_LINK_MTU)==0)
+	else if (strcmp(name, DEBUG_GET_LINK_MTU_NAME)==0)
 	{
 		return (void*) debug_get_link_mtu;
+	}
+	else if (strcmp(name, DEBUG_CREATE_TOPLEVEL_WINDOW_NAME)==0)
+	{
+		return (void*) debug_create_toplevel_window;
 	}
 	else {
 		return NULL;
@@ -357,7 +374,7 @@ void GenodePAL::dump_core()
 		uint32_t start = ((uint32_t) znb) & ~0xfff;
 		uint32_t end = ((uint32_t) znb) + sizeof(*znb) + znb->capacity;
 		end = ((end-1) & ~0xfff)+0x1000;
-		PDBG("Adding ZNB core segment %p len %x", start, end-start);
+		PDBG("Adding ZNB core segment %p len %x", (void*) start, end-start);
 		corefile_add_segment(&core, start, (void*) start, end-start);
 	}
 	
@@ -368,7 +385,7 @@ void GenodePAL::dump_core()
 	PDBG("Computed core size will be %d bytes", size);
 
 	{
-		CoreWriter core_writer(&channel_writer, size);
+		CoreWriter core_writer(channel_writer, size);
 		corefile_write_custom(&core, CoreWriter::static_write, NULL, &core_writer);
 	}
 	lock.unlock();
@@ -379,7 +396,15 @@ void GenodePAL::_grow_memory(size_t length)
 {
 	/* assumes lock is locked */
 	size_t request_length = max(length, (size_t) MIN_ALLOCATION_UNIT);
-	Dataspace_capability ds_cap = env()->ram_session()->alloc(request_length);
+
+	PDBG("GenodePAL::_grow_memory %d\n", request_length);
+	Dispatcher d(g_pal, ZoogMonitor::Session::do_allocate_memory);
+	d.d()->un.allocate_memory.in.length = request_length;
+	d.rpc();
+	Dataspace_capability ds_cap = d.d()->out_dataspace_capability;
+
+//	Dataspace_capability ds_cap = env()->ram_session()->alloc(request_length);
+	PDBG("GenodePAL::_grow_memory successful\n");
 	Dataspace_client ds_client(ds_cap);
 	addr_t backing;
 	while (true)
@@ -394,7 +419,7 @@ void GenodePAL::_grow_memory(size_t length)
 			continue;
 		}
 	}
-	next_allocation_location += length;
+	next_allocation_location += request_length;
 	PDBG("Attached more memory at %08lx", backing);
 	Range new_range(backing, backing+ds_client.size());
 	g_pal->mem_allocator.create_empty_range(new_range);
@@ -522,6 +547,33 @@ void GenodePAL::x86_set_segments(uint32_t fs, uint32_t gs)
 //	int *x=0; *x=7;
 }
 
+void GenodePAL::launch_application(SignedBinary *signed_binary)
+{
+	uint32_t signed_binary_size =
+		sizeof(SignedBinary)
+		+Z_NTOHG(signed_binary->cert_len)
+		+Z_NTOHG(signed_binary->binary_len);
+	lite_assert(signed_binary_size < (5<<20));	// rough sanity check -- 5MB
+	ZoogNetBuffer *znb = alloc_net_buffer(signed_binary_size);
+		// NB abuse of the net buffer mechanism for communicating biggish
+		// data up to monitor.
+	memcpy(ZNB_DATA(znb), signed_binary, signed_binary_size);
+
+	PalLocker lock(g_pal, __LINE__);
+
+	ZoogMonitor::Session::Zoog_genode_net_buffer_id buffer_id
+		= g_pal->net_buffer_table.lookup(znb, "launch_application");
+
+	Dispatcher d(g_pal, ZoogMonitor::Session::do_launch_application);
+	d.d()->un.launch_application.in.buffer_size = signed_binary_size;
+	d.d()->un.launch_application.in.buffer_id = buffer_id;
+	d.rpc();
+
+	g_pal->net_buffer_table.remove(buffer_id);
+
+	PDBG("launch_application (parent) done.\n");
+}
+
 void GenodePAL::zutex_wait(ZutexWaitSpec *specs, uint32_t count)
 {
 	PalLocker plock(g_pal, __LINE__);
@@ -645,7 +697,105 @@ void GenodePAL::set_clock_alarm(uint64_t scheduled_time)
 	g_pal->zoog_alarm_thread.reset_alarm(scheduled_time);
 }
 
-void GenodePAL::accept_canvas(
+void GenodePAL::sublet_viewport(
+	ViewportID tenant_viewport,
+	ZRectangle *rectangle,
+	ViewportID *out_landlord_viewport,
+	Deed *out_deed)
+{
+	PalLocker lock(g_pal, __LINE__);
+
+	Dispatcher d(g_pal, ZoogMonitor::Session::do_sublet_viewport);
+	d.d()->un.sublet_viewport.in.tenant_viewport = tenant_viewport;
+	d.d()->un.sublet_viewport.in.rectangle = *rectangle;
+	d.rpc();
+
+	*out_landlord_viewport = d.d()->un.sublet_viewport.out.landlord_viewport;
+	*out_deed = d.d()->un.sublet_viewport.out.deed;
+}
+
+void GenodePAL::accept_viewport(
+	Deed *deed,
+	ViewportID *out_tenant_viewport,
+	DeedKey *out_deed_key)
+{
+	PalLocker lock(g_pal, __LINE__);
+
+	Dispatcher d(g_pal, ZoogMonitor::Session::do_accept_viewport);
+	d.d()->un.accept_viewport.in.deed = *deed;
+	d.rpc();
+
+	*out_tenant_viewport = d.d()->un.accept_viewport.out.tenant_viewport;
+	*out_deed_key = d.d()->un.accept_viewport.out.deed_key;
+}
+
+void GenodePAL::repossess_viewport(
+	ViewportID landlord_viewport)
+{
+	PalLocker lock(g_pal, __LINE__);
+
+	Dispatcher d(g_pal, ZoogMonitor::Session::do_repossess_viewport);
+	d.d()->un.repossess_viewport.in.landlord_viewport = landlord_viewport;
+	d.rpc();
+}
+
+void GenodePAL::get_deed_key(
+	ViewportID landlord_viewport,
+	DeedKey *out_deed_key)
+{
+	PalLocker lock(g_pal, __LINE__);
+
+	Dispatcher d(g_pal, ZoogMonitor::Session::do_get_deed_key);
+	d.d()->un.get_deed_key.in.landlord_viewport = landlord_viewport;
+	d.rpc();
+
+	*out_deed_key = d.d()->un.get_deed_key.out.deed_key;
+}
+
+void GenodePAL::transfer_viewport(
+	ViewportID tenant_viewport,
+	Deed *out_deed)
+{
+	PalLocker lock(g_pal, __LINE__);
+
+	Dispatcher d(g_pal, ZoogMonitor::Session::do_transfer_viewport);
+	d.d()->un.transfer_viewport.in.tenant_viewport = tenant_viewport;
+	d.rpc();
+
+	*out_deed = d.d()->un.transfer_viewport.out.deed;
+}
+	
+bool GenodePAL::verify_label(ZCertChain* chain)
+{
+	// Sleazily recycling net buffers to transmit big data to monitor.
+	// Can't lock yet, because I'm using alloc_net_buffer, which locks.
+
+	uint32_t chain_size = chain->size();
+	lite_assert(chain_size < (1<<16));	// rough sanity check
+	ZoogNetBuffer *znb = alloc_net_buffer(chain_size);
+		// NB abuse of the net buffer mechanism for communicating biggish
+		// data up to monitor.
+	chain->serialize((uint8_t*) ZNB_DATA(znb));
+
+	PalLocker lock(g_pal, __LINE__);
+
+	ZoogMonitor::Session::Zoog_genode_net_buffer_id buffer_id
+		= g_pal->net_buffer_table.lookup(znb, "verify_label");
+
+	Dispatcher d(g_pal, ZoogMonitor::Session::do_verify_label);
+	d.d()->un.verify_label.in.buffer_size = chain_size;
+	d.d()->un.verify_label.in.buffer_id = buffer_id;
+	d.rpc();
+
+	g_pal->net_buffer_table.remove(buffer_id);
+
+	bool result = d.d()->un.verify_label.out.result;
+
+	PDBG("verify_label: %d", result);
+	return result;
+}
+
+void GenodePAL::map_canvas(
 	ViewportID viewport_id, PixelFormat *known_formats, int num_formats,
 	ZCanvas *out_canvas)
 {
@@ -653,28 +803,27 @@ void GenodePAL::accept_canvas(
 
 	lite_assert(num_formats==1);
 	lite_assert(known_formats[0] == zoog_pixel_format_truecolor24);
-	ZoogMonitor::Session::AcceptCanvasReply acr =
-		g_pal->zoog_monitor.accept_canvas(viewport_id);
-	*out_canvas = acr.canvas;
+	PDBG("map_canvas 1\n");
+	ZoogMonitor::Session::MapCanvasReply mcr =
+		g_pal->zoog_monitor.map_canvas(viewport_id);
+	*out_canvas = mcr.canvas;
+	PDBG("map_canvas 2\n");
 	g_pal->canvas_downsampler_manager.create(
 		out_canvas,
-		env()->rm_session()->attach(acr.framebuffer_dataspace_cap));
+		env()->rm_session()->attach(mcr.framebuffer_dataspace_cap));
+	PDBG("map_canvas 3\n");
 }
 	
-void GenodePAL::update_canvas(ZCanvasID canvas_id,
-	uint32_t x, uint32_t y, uint32_t width, uint32_t height)
+void GenodePAL::update_canvas(ZCanvasID canvas_id, ZRectangle* rectangle)
 {
 	PalLocker lock(g_pal, __LINE__);
 
 	CanvasDownsampler *cd = g_pal->canvas_downsampler_manager.lookup(canvas_id);
-	cd->update(x, y, width, height);
+	cd->update(rectangle->x, rectangle->y, rectangle->width, rectangle->height);
 
 	Dispatcher d(g_pal, ZoogMonitor::Session::do_update_canvas);
 	d.d()->un.update_canvas.in.canvas_id = canvas_id;
-	d.d()->un.update_canvas.in.x = x;
-	d.d()->un.update_canvas.in.y = y;
-	d.d()->un.update_canvas.in.width = width;
-	d.d()->un.update_canvas.in.height = height;
+	d.d()->un.update_canvas.in.rect = *rectangle;
 	d.rpc();
 }
 	
@@ -687,40 +836,25 @@ void GenodePAL::receive_ui_event(ZoogUIEvent *out_event)
 	*out_event = d.d()->un.receive_ui_event.out.evt;
 }
 
-ViewportID GenodePAL::delegate_viewport(ZCanvasID v, VendorIdentity *vendor)
-{
-	unimpl(); // TODO need to serialize vendor
-	// return g_pal->zoog_monitor.delegate_viewport(v, vendor);
-	return 0;
-}
-
-void GenodePAL::update_viewport(
-	ViewportID viewport_id, uint32_t x, uint32_t y, uint32_t width, uint32_t height)
+void GenodePAL::unmap_canvas(ZCanvasID canvas_id)
 {
 	PalLocker lock(g_pal, __LINE__);
 
-	Dispatcher d(g_pal, ZoogMonitor::Session::do_update_viewport);
-	d.d()->un.update_viewport.in.viewport_id = viewport_id;
-	d.d()->un.update_viewport.in.x = x;
-	d.d()->un.update_viewport.in.y = y;
-	d.d()->un.update_viewport.in.width = width;
-	d.d()->un.update_viewport.in.height = height;
-	d.rpc();
-}
-
-void GenodePAL::close_canvas(ZCanvasID canvas_id)
-{
-	PalLocker lock(g_pal, __LINE__);
-
-	Dispatcher d(g_pal, ZoogMonitor::Session::do_close_canvas);
-	d.d()->un.close_canvas.in.canvas_id = canvas_id;
+	Dispatcher d(g_pal, ZoogMonitor::Session::do_unmap_canvas);
+	d.d()->un.unmap_canvas.in.canvas_id = canvas_id;
 	d.rpc();
 	lite_assert(false);	// unimpl -- need to detach dataspace. Oh, maybe monitor server can do that for me.
 }
 
 void GenodePAL::unimpl(void)
 {
+	PalLocker lock(g_pal, __LINE__);
+		// want to get this thread labeled in coredump
+
+	g_pal->lock.unlock();
 	abort("GenodePAL::unimpl");
+	// should not occur
+	g_pal->lock.lock();
 }
 
 void GenodePAL::idle() {
@@ -742,4 +876,19 @@ void GenodePAL::launch(uint8_t *eip, uint8_t *esp, ZoogDispatchTable_v1 *zdt) {
 		:	"r"(esp), "r"(zdt) // in
 		, "r"(eip)
 		);
+}
+
+ZoogMonitor::Session::Dispatch* GenodePAL::assign_dispatch_slot(int* out_idx)
+{
+	int idx;
+	for (idx=0; idx<MAX_DISPATCH_SLOTS; idx++) {
+		if (!dispatch_slot_used[idx])
+		{
+			dispatch_slot_used[idx] = true;
+			break;
+		}
+	}
+	lite_assert(idx < MAX_DISPATCH_SLOTS);	// ran out of slots!
+	*out_idx = idx;
+	return &dispatch_region[idx];
 }

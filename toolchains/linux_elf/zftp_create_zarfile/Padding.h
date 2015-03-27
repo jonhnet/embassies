@@ -24,5 +24,6 @@ private:
 public:
 	Padding(uint32_t size);
 	virtual uint32_t get_size();
+	virtual const char* get_type();
 	virtual void emit(FILE *fp);
 };

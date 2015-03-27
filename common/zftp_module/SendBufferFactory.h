@@ -16,6 +16,7 @@
 /*                                                                           */
 #pragma once
 
+#include "pal_abi/pal_types.h"
 #include "ZeroCopyBuf.h"
 
 class SendBuffer {
@@ -28,5 +29,5 @@ public:
 
 class SendBufferFactory {
 public:
-	virtual ZeroCopyBuf *create_send_buffer(uint32_t payload_len) = 0;
+	virtual ZeroCopyBuf* create_send_buffer(uint32_t payload_len) = 0;
 };

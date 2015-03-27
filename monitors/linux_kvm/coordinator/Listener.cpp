@@ -84,21 +84,50 @@ void Listener::run()
 	}
 }
 
+App *Listener::msg_to_app(Message *msg, CoordinatorOpcode opcode)
+{
+	switch (opcode)
+	{
+	case co_free_long_message:
+	case co_sublet_viewport:
+	case co_repossess_viewport:
+	case co_get_deed_key:
+	case co_accept_viewport:
+	case co_transfer_viewport:
+	case co_verify_label:
+	case co_map_canvas:
+	case co_unmap_canvas:
+	case co_extn_debug_create_toplevel_window:
+	case co_get_monitor_key_pair:
+	case co_alloc_long_message:
+	{
+		SockaddrHashable saddr(msg->get_remote_addr(), msg->get_remote_addr_len());
+		App *app = (App*) sockaddr_to_app_table->lookup_left(&saddr);
+		return app;
+	}
+	default:
+		return NULL;
+	}
+}
+
 void Listener::dispatch(Message *msg)
 {
 	CMHeader *hdr = (CMHeader *) msg->get_payload();
 
 	lite_assert(hdr->length == msg->get_payload_size());
+	App* app = msg_to_app(msg, hdr->opcode);
 	switch (hdr->opcode)
 	{
 	case co_connect:
 		connect(msg, (CMConnect*) hdr);
+		msg = NULL;
 		break;
 	case co_deliver_packet:
 		deliver_packet(msg);
+		msg = NULL;
 		break;
 	case co_deliver_packet_long:
-		deliver_packet_long(msg, (CMDeliverPacketLong*) hdr);
+		deliver_packet_long((CMDeliverPacketLong*) hdr);
 		break;
 	case co_launch_application:
 		launch_application((CMLaunchApplication*) hdr);
@@ -106,48 +135,54 @@ void Listener::dispatch(Message *msg)
 	case co_long_message:
 		msg->ingest_long_message(get_long_message_allocator(), (CMLongMessage *)hdr);
 		dispatch(msg);
+		msg = NULL;	// it's the recursive invocation's job to clean up msg
 		break;
 	case co_free_long_message:
-		free_long_message(msg, (CMFreeLongMessage *) hdr);
+		free_long_message(app, (CMFreeLongMessage *) hdr);
 		break;
 	case co_sublet_viewport:
-		sublet_viewport(msg, (CMSubletViewport*) hdr);
+		sublet_viewport(app, (CMSubletViewport*) hdr);
 		break;
 	case co_repossess_viewport:
-		repossess_viewport(msg, (CMRepossessViewport*) hdr);
+		repossess_viewport(app, (CMRepossessViewport*) hdr);
 		break;
 	case co_get_deed_key:
-		get_deed_key(msg, (CMGetDeedKey*) hdr);
+		get_deed_key(app, (CMGetDeedKey*) hdr);
 		break;
 	case co_accept_viewport:
-		accept_viewport(msg, (CMAcceptViewport*) hdr);
+		accept_viewport(app, (CMAcceptViewport*) hdr);
 		break;
 	case co_transfer_viewport:
-		transfer_viewport(msg, (CMTransferViewport*) hdr);
+		transfer_viewport(app, (CMTransferViewport*) hdr);
 		break;
 	case co_verify_label:
-		verify_label(msg, (CMVerifyLabel*) hdr);
+		verify_label(app, (CMVerifyLabel*) hdr);
 		break;
 	case co_map_canvas:
-		map_canvas(msg, (CMMapCanvas *) hdr);
+		map_canvas(app, (CMMapCanvas *) hdr);
 		break;
 	case co_unmap_canvas:
-		unmap_canvas(msg, (CMUnmapCanvas *) hdr);
+		unmap_canvas(app, (CMUnmapCanvas *) hdr);
 		break;
 	case co_update_canvas:
 		update_canvas((CMUpdateCanvas *) hdr);
 		break;
 	case co_extn_debug_create_toplevel_window:
-		extn_debug_create_toplevel_window(msg, (CMExtnDebugCreateToplevelWindow*) hdr);
+		extn_debug_create_toplevel_window(app, (CMExtnDebugCreateToplevelWindow*) hdr);
 		break;
 	case co_get_monitor_key_pair:
-		get_monitor_key_pair(msg, (CMGetMonitorKeyPair*) hdr);
+		get_monitor_key_pair(app, (CMGetMonitorKeyPair*) hdr);
 		break;
 	case co_alloc_long_message:
-		alloc_long_message(msg, (CMAllocLongMessage*) hdr);
+		alloc_long_message(app, (CMAllocLongMessage*) hdr);
 		break;
 	default:
 		lite_assert(false);
+	}
+
+	if (msg!=NULL)
+	{
+		delete msg;
 	}
 }
 
@@ -210,9 +245,8 @@ void Listener::launch_application(CMLaunchApplication *la)
 	}
 }
 
-void Listener::free_long_message(Message *msg, CMFreeLongMessage *flm)
+void Listener::free_long_message(App *app, CMFreeLongMessage *flm)
 {
-	App *app = msg_to_app(msg);
 	app->free_long_message(flm);
 }
 
@@ -222,7 +256,7 @@ void Listener::deliver_packet(Message *msg)
 	router->deliver_packet(packet);
 }
 
-void Listener::deliver_packet_long(Message *msg, CMDeliverPacketLong* dpl)
+void Listener::deliver_packet_long(CMDeliverPacketLong* dpl)
 {
 	LongMessageAllocation* lma = get_long_message_allocator()
 		->lookup_existing(
@@ -230,13 +264,6 @@ void Listener::deliver_packet_long(Message *msg, CMDeliverPacketLong* dpl)
 			dpl->hdr.length - offsetof(CMDeliverPacketLong, id));
 	Packet *packet = new LongPacket(dpl, lma);
 	router->deliver_packet(packet);
-}
-
-App *Listener::msg_to_app(Message *msg)
-{
-	SockaddrHashable saddr(msg->get_remote_addr(), msg->get_remote_addr_len());
-	App *app = (App*) sockaddr_to_app_table->lookup_left(&saddr);
-	return app;
 }
 
 #define DECLARE_RPC_REPLY(Treply) \
@@ -247,9 +274,8 @@ App *Listener::msg_to_app(Message *msg)
 #define SEND_REPLY() \
 	app->send_cm(&reply.rpc.hdr, reply.rpc.hdr.length);
 
-void Listener::sublet_viewport(Message *msg, CMSubletViewport* hdr)
+void Listener::sublet_viewport(App* app, CMSubletViewport* hdr)
 {
-	App *app = msg_to_app(msg);
 	BlitterViewport *parent_viewport = blitterMgr()->get_tenant_viewport(hdr->in_tenant_viewport, app->get_id());
 	BlitterViewport *child_viewport = parent_viewport->sublet(&hdr->in_rectangle, app->get_id());
 
@@ -259,9 +285,8 @@ void Listener::sublet_viewport(Message *msg, CMSubletViewport* hdr)
 	SEND_REPLY();
 }
 
-void Listener::repossess_viewport(Message *msg, CMRepossessViewport* hdr)
+void Listener::repossess_viewport(App* app, CMRepossessViewport* hdr)
 {
-	App *app = msg_to_app(msg);
 	BlitterViewport *landlord_viewport = blitterMgr()->get_landlord_viewport(hdr->in_landlord_viewport, app->get_id());
 	delete landlord_viewport;
 
@@ -269,9 +294,8 @@ void Listener::repossess_viewport(Message *msg, CMRepossessViewport* hdr)
 	SEND_REPLY();
 }
 
-void Listener::get_deed_key(Message *msg, CMGetDeedKey* hdr)
+void Listener::get_deed_key(App* app, CMGetDeedKey* hdr)
 {
-	App *app = msg_to_app(msg);
 	BlitterViewport *landlord_viewport = blitterMgr()->get_landlord_viewport(hdr->in_landlord_viewport, app->get_id());
 
 	DECLARE_RPC_REPLY(CMGetDeedKeyReply)
@@ -279,9 +303,8 @@ void Listener::get_deed_key(Message *msg, CMGetDeedKey* hdr)
 	SEND_REPLY();
 }
 
-void Listener::accept_viewport(Message *msg, CMAcceptViewport* hdr)
+void Listener::accept_viewport(App* app, CMAcceptViewport* hdr)
 {
-	App *app = msg_to_app(msg);
 	BlitterViewport *viewport = blitterMgr()->accept_viewport(hdr->in_deed, app->get_id());	// this lookup is global, as the deed is a cryptographic capability
 	lite_assert(viewport!=NULL);	// safety: deed was bogus
 
@@ -291,9 +314,8 @@ void Listener::accept_viewport(Message *msg, CMAcceptViewport* hdr)
 	SEND_REPLY();
 }
 
-void Listener::transfer_viewport(Message *msg, CMTransferViewport* hdr)
+void Listener::transfer_viewport(App* app, CMTransferViewport* hdr)
 {
-	App *app = msg_to_app(msg);
 	BlitterViewport *tenant_viewport = blitterMgr()->get_tenant_viewport(hdr->in_tenant_viewport, app->get_id());
 	lite_assert(tenant_viewport->get_tenant_id()==hdr->in_tenant_viewport);	// safety: tenant_viewport handle was a landlord handle; what you tryin' to pull?
 
@@ -303,19 +325,16 @@ void Listener::transfer_viewport(Message *msg, CMTransferViewport* hdr)
 }
 
 
-void Listener::verify_label(Message *msg, CMVerifyLabel *hdr)
+void Listener::verify_label(App* app, CMVerifyLabel *hdr)
 {
-	App *app = msg_to_app(msg);
 	app->verify_label();
 
 	DECLARE_RPC_REPLY(CMVerifyLabelReply)
 	SEND_REPLY();
 }
 
-void Listener::map_canvas(Message *msg, CMMapCanvas * hdr)
+void Listener::map_canvas(App* app, CMMapCanvas * hdr)
 {
-	App *app = msg_to_app(msg);
-
 	const char *label = app->get_label();
 	if (label == NULL)
 	{
@@ -347,9 +366,8 @@ void Listener::map_canvas(Message *msg, CMMapCanvas * hdr)
 	app->send_cm(&cmmcr->rpc.hdr, cmmcr->rpc.hdr.length);
 }
 
-void Listener::unmap_canvas(Message *msg, CMUnmapCanvas * hdr)
+void Listener::unmap_canvas(App* app, CMUnmapCanvas * hdr)
 {
-	App *app = msg_to_app(msg);
 	// TODO this get_canvas call should be filtered by app get_id
 	BlitterCanvas *canvas = blitterMgr()->get_canvas(hdr->canvas_id);
 	canvas->unmap();
@@ -363,9 +381,8 @@ void Listener::update_canvas(CMUpdateCanvas *hdr)
 	blitter_mgr->get_canvas(hdr->canvas_id)->update_canvas(&hdr->rectangle);
 }
 
-void Listener::extn_debug_create_toplevel_window(Message *msg, CMExtnDebugCreateToplevelWindow * hdr)
+void Listener::extn_debug_create_toplevel_window(App* app, CMExtnDebugCreateToplevelWindow * hdr)
 {
-	App *app = msg_to_app(msg);
 	ViewportID viewport = blitterMgr()->new_toplevel_viewport(app->get_id());
 
 	DECLARE_RPC_REPLY(CMExtnDebugCreateToplevelWindowReply)
@@ -373,9 +390,8 @@ void Listener::extn_debug_create_toplevel_window(Message *msg, CMExtnDebugCreate
 	SEND_REPLY();
 }
 
-void Listener::get_monitor_key_pair(Message *msg, CMGetMonitorKeyPair* hdr)
+void Listener::get_monitor_key_pair(App* app, CMGetMonitorKeyPair* hdr)
 {
-	App *app = msg_to_app(msg);
 
 	// DECLARE_RPC_REPLY(CMGetMonitorKeyPairReply)
 	uint32_t key_pair_len = crypto.get_monitorKeyPair()->size();
@@ -391,10 +407,8 @@ void Listener::get_monitor_key_pair(Message *msg, CMGetMonitorKeyPair* hdr)
 	app->send_cm(&reply->rpc.hdr, reply->rpc.hdr.length);
 }
 
-void Listener::alloc_long_message(Message* msg, CMAllocLongMessage* hdr)
+void Listener::alloc_long_message(App* app, CMAllocLongMessage* hdr)
 {
-	App *app = msg_to_app(msg);
-
 	LongMessageAllocation* lma = get_long_message_allocator()->allocate(hdr->size);
 	app->record_alloc_long_message(lma);
 

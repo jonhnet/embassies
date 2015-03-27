@@ -17,7 +17,7 @@
 #pragma once
 
 #include "malloc_factory.h"
-#include "pal_abi/pal_types.h"
+#include "pal_abi/pal_basic_types.h"
 
 #ifdef __cplusplus
 extern "C" {

@@ -9,6 +9,7 @@
 
 #include "timer.h"
 #include "crypto.h"
+#include "sha-openssl.h"
 #include "ZCert.h"
 #include "ZCertChain.h"
 #include "ZKeyPair.h"
@@ -30,7 +31,7 @@
 
 using namespace std;
 
-#define NUM_SPEED_TRIALS 100 // 100
+#define NUM_SPEED_TRIALS 100000
 
 #define ZFTP_LG_BLOCK_SIZE     (15)
 #define ZFTP_BLOCK_SIZE (1<<ZFTP_LG_BLOCK_SIZE)
@@ -44,6 +45,40 @@ void runHashSpeedTests() {
 	for (int i = 0; i < ZFTP_BLOCK_SIZE; i++) {
 		inputBuffer[i] = rand() % 256;
 	}
+
+	/*****************************
+	 *      SHA-1
+	 *****************************/
+	startTimer(&t);
+	sph_sha1_context sha1_ctx; 
+	sph_sha1_init(&sha1_ctx); 
+	for (int trial = 0; trial < NUM_SPEED_TRIALS; trial++) {
+		sph_sha1(&sha1_ctx, inputBuffer, ZFTP_BLOCK_SIZE); 
+		sph_sha1_close(&sha1_ctx, hash); 
+	}
+	stopTimer(&t);
+
+	cout << NUM_SPEED_TRIALS << " of SHA-1 on block size " << ZFTP_BLOCK_SIZE << " took total time: " << getTimeSeconds(&t) << " seconds\n";
+	cout << "Average time: " << getTimeSeconds(&t) / (double) NUM_SPEED_TRIALS * pow(10.0,6) << " microseconds/SHA\n";
+	cout << "Equivalent to: " << (getTimeCycles(&t) / (double)NUM_SPEED_TRIALS) / (double)ZFTP_BLOCK_SIZE << " cycles/byte\n";
+	cout << endl;
+
+	/*****************************
+	 *      SHA-1 -- OpenSSL version
+	 *****************************/
+	startTimer(&t);
+	SHA_CTX sha1_ctx2; 
+	sha1_init(&sha1_ctx2); 
+	for (int trial = 0; trial < NUM_SPEED_TRIALS; trial++) {
+		sha1_update(&sha1_ctx2, inputBuffer, ZFTP_BLOCK_SIZE); 
+		sha1_final(&sha1_ctx2, hash); 
+	}
+	stopTimer(&t);
+
+	cout << NUM_SPEED_TRIALS << " of OpenSSL SHA-1 on block size " << ZFTP_BLOCK_SIZE << " took total time: " << getTimeSeconds(&t) << " seconds\n";
+	cout << "Average time: " << getTimeSeconds(&t) / (double) NUM_SPEED_TRIALS * pow(10.0,6) << " microseconds/SHA\n";
+	cout << "Equivalent to: " << (getTimeCycles(&t) / (double)NUM_SPEED_TRIALS) / (double)ZFTP_BLOCK_SIZE << " cycles/byte\n";
+	cout << endl;
 
 	/*****************************
 	 *      SHA-256

@@ -27,12 +27,15 @@ public:
 	const char *zarfile;
 	const char *extract_path;
 	const char *dir_path;
+	const char *flat_unpack_dest;
+	bool verbose;
 	enum Mode {
 		unset,
 		extract,
 		list_files,
 		list_chunks,
 		list_dir,
+		flat_unpack,
 	};
 	Mode mode;
 

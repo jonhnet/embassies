@@ -126,7 +126,7 @@ void NavMgr::handle_navigate_forward(NavigationBlob *msg)
 	NavigateIfc *nav_ifc = navigate_factory->create_navigate_server();
 	if (nav_ifc == NULL)
 	{
-		// No more navigation ability from this factory. (Expedient because we
+		// No more navigation ability from this factory. (Hack because we
 		// only have one xvnc surface, and it's in use, apparently, and
 		// we haven't figured out how to free & recycle it!)
 		fprintf(stderr, "NavMgr::handle_navigate_forward: no slots free; ignoring\n");

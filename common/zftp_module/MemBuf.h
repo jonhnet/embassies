@@ -22,13 +22,17 @@
 
 class MemBuf : public Buf {
 public:
-	// Buffer we represent
 	MemBuf(uint8_t* buffer, uint32_t buf_len);
-	void read(ZBlockCacheRecord* block, uint32_t buf_offset, uint32_t block_offset, uint32_t len);
-	uint8_t* data() { return buffer; }
-	virtual void set_debug_offset(uint32_t offset) {;}
+	// Buffer we represent
+
+	virtual void write_data(ZBlockCacheRecord* block, uint32_t data_offset, uint32_t block_offset, uint32_t len);
+	virtual uint32_t get_payload_len();
+
+protected:
+	uint8_t* get_data_buf();
 
 private:
 	uint8_t* buffer;
 	uint32_t buf_len;
+	uint32_t max_data_len;
 };

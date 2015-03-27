@@ -16,55 +16,58 @@
 /*                                                                           */
 #pragma once
 
-#include "avl2.h"
 #include "malloc_factory.h"
-#include "zcz_args.h"
+#include "ZCZArgs.h"
 #include "Emittable.h"
 #include "linked_list.h"
 #include "FileSystemView.h"
 #include "ChunkTable.h"
 #include "StringTable.h"
-#include "MmapDecoder.h"
+#include "TraceDecoder.h"
+#include "CatalogEntryByUrl.h"
+#include "ChunkBySize.h"
+#include "PlacementIfc.h"
 
 class CatalogEntry;
-class CatalogEntryByUrl;
 class ChunkEntry;
-class ChunkBySize;
 class Placer;
 class ZHdr;
 class ChunkCounter;
 
-typedef AVLTree<CatalogEntryByUrl,CatalogEntryByUrl> EntryTree;
-typedef AVLTree<ChunkBySize,ChunkBySize> ChunkTree;
 
 class Catalog {
 private:
 	MallocFactory* mf;
-	MmapDecoder* mmap_decoder;
+	SyncFactory *sf;
+	TraceDecoder* trace_decoder;
 	EntryTree url_tree;
 	ChunkTree chunk_tree;
 	StringTable* string_table;
 	ChunkTable* chunk_table;
-	ZArgs* zargs;
+	ZCZArgs* zargs;
 	FileSystemView file_system_view;
 	Placer* placer;
 	ZHdr* zhdr;
-
-	uint32_t dbg_total_padding;
+	uint32_t zftp_lg_block_size;
+	uint32_t zftp_block_size;
 
 	void enumerate_entries();
 	void place_chunks();
-	void add_chunk(uint32_t offset, uint32_t len, bool precious, CatalogEntry *ce, ChunkCounter *cc);
-	void lookup_elf_ranges(ZFSReader* zf, LinkedList* out_ranges);
-	void insert_elf_chunks(ZFSReader* zf, CatalogEntry* ce, ChunkCounter* cc);
+	void add_chunk(uint32_t offset, uint32_t len, ChunkEntry::ChunkType chunk_type, CatalogEntry *ce, ChunkCounter *cc);
+//	void lookup_elf_ranges(ZFSReader* zf, LinkedList* out_ranges);
+//	void insert_elf_chunks(ZFSReader* zf, CatalogEntry* ce, ChunkCounter* cc);
 	char* compute_mmap_filename(const char* log_paths);
+	char* cons(const char* scheme, const char* path);
+	static void s_scan_foreach(void* v_this, void* v_tpr);
+	void scan_foreach(TracePathRecord* tpr);
+	const char *path_from_url(const char *url);
 
 public:
-	Catalog(ZArgs *zargs, SyncFactory *sf);
+	Catalog(ZCZArgs *zargs, SyncFactory *sf);
 	void add_entry(CatalogEntry *ce);
 	void add_record_noent(const char *url);
 	bool add_record_one_url(const char *url);
-	bool add_record_one_file(const char *url);
-	void scan(const char *log_paths, const char *dep_file_name, const char *dep_target_name);
+	bool add_record_one_path(const char *path);
+	void scan(const char *trace);
 	void emit(const char *out_name);
 };

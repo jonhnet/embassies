@@ -50,6 +50,9 @@ bool ZFileRequest::parse(ZLCEmit *ze, bool request_is_synthetic)
 
 	padding_request = Z_NTOHG(zrp->padding_request);
 
+	compression_context.state_id = Z_NTOHG(zrp->compression_context.state_id);
+	compression_context.seq_id = Z_NTOHG(zrp->compression_context.seq_id);
+
 	data_range = DataRange(Z_NTOHG(zrp->data_start), Z_NTOHG(zrp->data_end));
 
 	tree_locations = (uint32_t*) (&zrp[1]);

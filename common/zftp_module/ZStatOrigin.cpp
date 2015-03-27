@@ -11,7 +11,7 @@
 
 ZStatOrigin::ZStatOrigin(ZCache *zcache)
 	: zcache(zcache),
-	  file_system_view(zcache->mf, zcache->sf)
+	  file_system_view(zcache->mf, zcache->sf, false)
 {
 	file_system_view.insert_overlay("");
 }

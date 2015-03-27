@@ -15,7 +15,7 @@
 #include "linked_list.h"
 #include "standard_malloc_factory.h"
 #include "copy_file.h"
-#include "zcz_args.h"
+#include "ZCZArgs.h"
 #include "ZFSReader.h"
 #include "math_util.h"
 #include "LiteLib.h"
@@ -25,12 +25,12 @@
 
 int main(int argc, char **argv)
 {
-	ZArgs zargs;
+	ZCZArgs zargs;
 	args_init(&zargs, argc, argv, standard_malloc_factory_init());
 
 	SyncFactory_Pthreads sf;
 	Catalog catalog(&zargs, &sf);
-	catalog.scan(zargs.log, zargs.dep_file, zargs.zar);
+	catalog.scan(zargs.trace);
 	catalog.emit(zargs.zar);
 
 	return 0;

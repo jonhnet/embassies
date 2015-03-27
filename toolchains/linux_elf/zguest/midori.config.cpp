@@ -4,7 +4,8 @@
 
 void config_create(RunConfig *rc)
 {
-	rc->add_vnc();
+	Zone* vnczone = rc->add_vnc();
+	vnczone->add_env("ZOOG_NO_TOPLEVEL=1");
 
 	DbusZone *dbus = new DbusZone();
 	//dbus->add_env("DBUS_VERBOSE=1");

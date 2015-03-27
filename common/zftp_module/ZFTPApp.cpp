@@ -22,35 +22,77 @@
 #include "ZSyntheticFileRequest.h"
 #include "SendBufferFactory_Memcpy.h"
 #include "PerfMeasureIfc.h"
+#include "ZCompressionImpl.h"
 
 void ZFTPApp::close()
 {
+	if (zlc_args->print_net_stats)
+	{
+		fprintf(stdout, "Net receive %d bytes send %d bytes\n",
+			socket_factory_counter->get_received_bytes(),
+			socket_factory_counter->get_sent_bytes());
+	}
+
 	//fprintf(stderr, "App shutting down.\n");
 	delete zcache;
 	exit(0);
 }
 
-void ZFTPApp::run(ZLCArgs *zlc_args, 
-              MallocFactory *mf, 
-              SocketFactory *socket_factory,
-              SyncFactory *sf,           
-              ThreadFactory *tf,
-              SendBufferFactory *sbf)
+void ZFTPApp::fetch(const char* fetch_url)
 {
-	ZLCEmit *ze;
+	ZFetch zfetch(zcache, get_zlookup_client(), zlc_args->fetch_timeout_ms);
+	bool rc = zfetch.fetch(fetch_url);
+	if (!rc)
+	{
+		fprintf(stderr, "File not found\n");
+	}
+	else if (zlc_args->show_payload)
+	{
+		zfetch.dbg_display();
+	}
+}
+
+ZLookupClient* ZFTPApp::get_zlookup_client()
+{
+	if (zlookup_client == NULL)
+	{
+		zlookup_client = new ZLookupClient(zlc_args->origin_lookup, socket_factory_counter, sf, ze);
+	}
+	return zlookup_client;
+}
+
+ZFTPApp::ZFTPApp(ZLCArgs *zlc_args,
+	  MallocFactory *mf,
+	  SocketFactory *underlying_socket_factory,
+	  SyncFactory *sf,
+	  ThreadFactory *tf,
+	  SendBufferFactory *sbf)
+	: zlc_args(zlc_args),
+	  zlookup_client(NULL),
+	  mf(mf),
+	  sf(sf),
+	  tf(tf),
+	  zcompression(new ZCompressionImpl(mf, &zlc_args->compression_args)),
+	  sbf(sbf)
+{
+	socket_factory_counter = new SocketFactory_Counter(underlying_socket_factory);
 	ze = new ZLCEmitStdio(stderr, terse);
-	zcache = new ZCache(zlc_args, mf, sf, ze, sbf);
+}
+
+void ZFTPApp::run()
+{
+	zcache = new ZCache(zlc_args, mf, sf, ze, sbf, zcompression);
 
 	ZFileClient *zclient = NULL;
 	if (zlc_args->origin_zftp!=NULL)
 	{
-		zclient = new ZFileClient(zcache, zlc_args->origin_zftp, socket_factory, tf, zlc_args->max_payload);
+		zclient = new ZFileClient(zcache, zlc_args->origin_zftp, socket_factory_counter, tf, zlc_args->max_payload);
 	}
 
 	ZFileServer *zserver = NULL;
 	if (zlc_args->listen_zftp!=NULL)
 	{
-		zserver = new ZFileServer(zcache, zlc_args->listen_zftp, socket_factory, tf, new DummyPerfMeasure());
+		zserver = new ZFileServer(zcache, zlc_args->listen_zftp, socket_factory_counter, tf, new DummyPerfMeasure());
 	}
 
 	zcache->configure(zserver, zclient);
@@ -73,16 +115,14 @@ void ZFTPApp::run(ZLCArgs *zlc_args,
 			log_paths_emitter = new ZLCEmitStdio(ofp, chatty);
 		}
 	
-		zlookup_server = new ZLookupServer(zcache, zlc_args->listen_lookup, log_paths_emitter, socket_factory, tf);
+		zlookup_server = new ZLookupServer(zcache, zlc_args->listen_lookup, log_paths_emitter, socket_factory_counter, tf);
 		(void) zlookup_server;
 	}
 
-	ZLookupClient *zlookup_client;
 	ZLCTestHarness *test_harness;
 	if (zlc_args->run_test_harness > 0)
 	{
-		zlookup_client = new ZLookupClient(zlc_args->origin_lookup, socket_factory, sf, ze);
-		test_harness = new ZLCTestHarness(zcache, zlookup_client, zlc_args->run_test_harness, ze);
+		test_harness = new ZLCTestHarness(zcache, get_zlookup_client(), zlc_args->run_test_harness, ze);
 		(void) test_harness;
 		close();
 	}
@@ -93,19 +133,18 @@ void ZFTPApp::run(ZLCArgs *zlc_args,
 		close();
 	}
 
+	if (zlc_args->warm_url != NULL)
+	{
+		lite_assert(zlc_args->fetch_url != NULL);
+		fetch(zlc_args->warm_url);
+		socket_factory_counter->reset_stats();
+		fetch(zlc_args->fetch_url);
+		close();
+	}
+
 	if (zlc_args->fetch_url != NULL)
 	{
-		zlookup_client = new ZLookupClient(zlc_args->origin_lookup, socket_factory, sf, ze);
-		ZFetch zfetch(zcache, zlookup_client);
-		bool rc = zfetch.fetch(zlc_args->fetch_url);
-		if (!rc)
-		{
-			fprintf(stderr, "File not found\n");
-		}
-		else
-		{
-			zfetch.dbg_display();
-		}
+		fetch(zlc_args->fetch_url);
 		close();
 	}
 

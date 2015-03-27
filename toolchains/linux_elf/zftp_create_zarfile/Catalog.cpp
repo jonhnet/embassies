@@ -1,4 +1,3 @@
-#include <assert.h>
 #include <malloc.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -17,111 +16,28 @@
 #include "PHdr.h"
 #include "Padding.h"
 #include "math_util.h"
-#include "MmapDecoder.h"
 #include "CatalogElfReaderWrapper.h"
+#include "CatalogEntryByUrl.h"
+#include "GreedyPlacement.h"
+#include "StablePlacement.h"
 
-class CatalogEntryByUrl {
-private:
-	CatalogEntry *ce;
+#define DEBUG_SCHEDULER 1
 
-public:
-	CatalogEntryByUrl(CatalogEntry *ce) : ce(ce) {}
-	CatalogEntryByUrl getKey() { return *this; }
-	CatalogEntry* get_catalog_entry() { return ce; }
 
-	bool operator<(CatalogEntryByUrl b)
-		{ return strcmp(ce->get_url(), b.ce->get_url())<0; }
-	bool operator>(CatalogEntryByUrl b)
-		{ return strcmp(ce->get_url(), b.ce->get_url())>0; }
-	bool operator==(CatalogEntryByUrl b)
-		{ return strcmp(ce->get_url(), b.ce->get_url())==0; }
-	bool operator<=(CatalogEntryByUrl b)
-		{ return strcmp(ce->get_url(), b.ce->get_url())<=0; }
-	bool operator>=(CatalogEntryByUrl b)
-		{ return strcmp(ce->get_url(), b.ce->get_url())>=0; }
-};
-
-class ChunkBySize {
-public:
-	ChunkEntry *chunk;
-	uint32_t key_val;
-
-public:
-	int cmp(ChunkBySize *other);
-
-public:
-	ChunkBySize(ChunkEntry *chunk) : chunk(chunk) {}
-	ChunkBySize(uint32_t key_val) : chunk(NULL), key_val(key_val) {}
-	ChunkBySize getKey() { return *this; }
-	ChunkEntry *get_chunk_entry() { return chunk; }
-
-	inline bool is_key() { return chunk==NULL; }
-	uint32_t get_size() { return is_key() ? key_val : chunk->get_size(); }
-
-	bool operator<(ChunkBySize b)
-		{ return cmp(&b) <0; }
-	bool operator>(ChunkBySize b)
-		{ return cmp(&b) >0; }
-	bool operator==(ChunkBySize b)
-		{ return cmp(&b) ==0; }
-	bool operator<=(ChunkBySize b)
-		{ return cmp(&b) <=0; }
-	bool operator>=(ChunkBySize b)
-		{ return cmp(&b) >=0; }
-};
-
-int ChunkBySize::cmp(ChunkBySize *other)
-{
-	int size_diff = get_size() - other->get_size();
-
-	if (size_diff!=0) { return size_diff; }
-
-	// keys are always "bigger" than the objects of the same size,
-	// so that when we look to their left, we find the
-	// deterministically-biggest chunk (including names and offsets to
-	// break ties).
-	lite_assert(!(this->is_key() && other->is_key()));
-	if (this->is_key()) { return 1; }
-	if (other->is_key()) { return -1; }
-
-	// Compare on files and offsets,
-	// so that content appears in a deterministic order.
-	int name_diff = strcmp(chunk->get_url(), other->chunk->get_url());
-	if (name_diff!=0) { return name_diff; }
-
-	// well, sometimes the same file can have several chunks. Deeper!
-	int off_diff = (chunk->get_chdr()->z_data_off - other->chunk->get_chdr()->z_data_off);
-	if (off_diff!=0) { return off_diff; }
-
-	// Okay, but it might have several copies of the *same* chunk.
-	// At this point, disambiguate on address, since it's the same content
-	// and order really doesn't matter, but they need to be able to coexist
-	// in a duplicate-free AVL tree.
- 	return ((uint32_t) chunk) - ((uint32_t) other->chunk);
-}
-
-//////////////////////////////////////////////////////////////////////////////
-
-const char *path_from_url(const char *url)
-{
-	assert(strncmp(url, FILE_SCHEME, 5)==0);
-	return &url[5];
-}
-
-//////////////////////////////////////////////////////////////////////////////
-
-Catalog::Catalog(ZArgs *zargs, SyncFactory *sf)
+Catalog::Catalog(ZCZArgs *zargs, SyncFactory *sf)
 	: mf(standard_malloc_factory_init()),
-	  mmap_decoder(NULL),
+	  sf(sf),
+	  trace_decoder(NULL),
 	  url_tree(sf),
 	  chunk_tree(sf),
 	  string_table(NULL),
 	  chunk_table(NULL),
 	  zargs(zargs),
-	  file_system_view(mf, sf),
+	  file_system_view(mf, sf, zargs->hide_icons_dir),
 	  placer(NULL),
 	  zhdr(NULL),
-	  dbg_total_padding(0)
+	  zftp_lg_block_size(zargs->zftp_lg_block_size),
+	  zftp_block_size(1<<zargs->zftp_lg_block_size)
 {
 	file_system_view.insert_overlay("");
 	while (zargs->overlay_list.count > 0)
@@ -143,9 +59,10 @@ void Catalog::add_entry(CatalogEntry *ce)
 	url_tree.insert(new CatalogEntryByUrl(ce));
 }
 
-void Catalog::add_record_noent(const char *url)
+void Catalog::add_record_noent(const char *path)
 {
-	add_entry(new CatalogEntry(url, false, 0, ZFTP_METADATA_FLAG_ENOENT, &file_system_view));
+	char* file_url = cons(FILE_SCHEME, path);
+	add_entry(new CatalogEntry(file_url, false, 0, ZFTP_METADATA_FLAG_ENOENT, &file_system_view));
 }
 
 bool Catalog::add_record_one_url(const char *url)
@@ -161,10 +78,10 @@ bool Catalog::add_record_one_url(const char *url)
 	bool is_dir;
 
 	rc = zf->get_filelen(&len);
-	assert(rc);
+	lite_assert(rc);
 
 	rc = zf->is_dir(&is_dir);
-	assert(rc);
+	lite_assert(rc);
 
 	delete zf;
 
@@ -178,29 +95,39 @@ bool Catalog::add_record_one_url(const char *url)
 	return true;
 }
 
-bool Catalog::add_record_one_file(const char *url)
+char* Catalog::cons(const char* scheme, const char* path)
 {
+	int size = strlen(scheme)+strlen(path)+1;
+	char* s = (char*) malloc(size);
+	strcpy(s, scheme);
+	strcat(s, path);
+	return s;
+}
+
+bool Catalog::add_record_one_path(const char *path)
+{
+	char* file_url = cons(FILE_SCHEME, path);
 	bool rc;
-	rc = add_record_one_url(url);
+
+	rc = add_record_one_url(file_url);
 	if (!rc)
 	{
+		free(file_url);
 		return false;
 	}
 
-	const char *path = path_from_url(url);
+	char* stat_url = cons(STAT_SCHEME, path);
+	rc = add_record_one_url(stat_url);
+	lite_assert(rc);
 
-	int urlsize = strlen(STAT_SCHEME)+strlen(path)+1;
-	char *staturl = (char*) malloc(urlsize);
-	snprintf(staturl, urlsize, "%s%s", STAT_SCHEME, path);
-	rc = add_record_one_url(staturl);
-	assert(rc);
-	free(staturl);
+	free(file_url);
+	free(stat_url);
 	return true;
 }
 
 
 enum FilterResult { INCLUDE, TOMBSTONE, OMIT };
-FilterResult filter_path(const char *path, ZArgs *zargs)
+FilterResult filter_path(const char *path, ZCZArgs *zargs)
 {
 	if (strncmp(path, "/proc", 5)==0)
 	{
@@ -238,99 +165,44 @@ FilterResult filter_path(const char *path, ZArgs *zargs)
 	return INCLUDE;
 }
 
-bool str_ends_with(const char *s, const char *sub)
+void Catalog::s_scan_foreach(void* v_this, void* v_tpr)
 {
-	int slen = strlen(s);
-	int sublen = strlen(sub);
-
-	if (slen < sublen)
-	{
-		return false;
-	}
-
-	return strcmp(&s[slen-sublen], sub)==0;
+	((Catalog*) v_this)->scan_foreach((TracePathRecord*) v_tpr);
 }
 
-void Catalog::scan(const char *log_paths, const char *dep_file_name, const char *dep_target_name)
+void Catalog::scan_foreach(TracePathRecord* tpr)
 {
-	FILE *dep_file_fp = NULL;
-	if (dep_file_name!=NULL)
+	struct stat statbuf;
+	int rc = stat(tpr->path, &statbuf);
+
+	FilterResult result;
+	if (rc==0)
 	{
-		dep_file_fp = fopen(dep_file_name, "w");
-		fprintf(dep_file_fp, "%s: \\\n", dep_target_name);
-	}
-
-	FILE *fp = fopen(log_paths, "r");
-	assert(fp!=NULL);
-	char buf[800];
-	int rc;
-	while (true)
-	{
-		char *line = fgets(buf, sizeof(buf), fp);
-		if (line==NULL)
+		if (S_ISDIR(statbuf.st_mode))
 		{
-			break;
+			result = INCLUDE;
 		}
-		assert(line[strlen(line)-1]=='\n');
-		line[strlen(line)-1]='\0';
-
-		const char *url = line;
-		if (lite_starts_with(STAT_SCHEME, url))
+		else
 		{
-			continue;
-		}
-
-		const char *path = path_from_url(url);
-
-		if (str_ends_with(url, ".zarfile"))
-		{
-			// avoid getting all recursey
-//			fprintf(stderr, "Skipping zarfile %s\n", url);
-			continue;
-		}
-
-		if (dep_file_name!=NULL)
-		{
-			fprintf(dep_file_fp, "	%s \\\n", path);
-		}
-
-		struct stat statbuf;
-		rc = stat(path, &statbuf);
-	
-		FilterResult result;
-		if (rc==0)
-		{
-			if (S_ISDIR(statbuf.st_mode))
-			{
-				result = INCLUDE;
-			}
-			else
-			{
-				result = filter_path(path, zargs);
-			}
-		}
-
-		bool catalog_successful = false;
-		if (result != OMIT)
-		{
-			catalog_successful = add_record_one_file(url);
-			if (!catalog_successful)
-			{
-				add_record_noent(url);
-			}
+			result = filter_path(tpr->path, zargs);
 		}
 	}
 
-	if (dep_file_name!=NULL)
+	bool catalog_successful = false;
+	if (result != OMIT)
 	{
-		fprintf(dep_file_fp, "\n");
-		fclose(dep_file_fp);
+		catalog_successful = add_record_one_path(tpr->path);
+		if (!catalog_successful)
+		{
+			add_record_noent(tpr->path);
+		}
 	}
+}
 
-	char* mmap_file = compute_mmap_filename(log_paths);
-	mmap_decoder = new MmapDecoder(mmap_file);
-	free(mmap_file);
-//	mmap_decoder->dbg_dump();
+void Catalog::scan(const char *trace)
+{
+	trace_decoder = new TraceDecoder(trace, mf, sf);
+	trace_decoder->visit_trace_path_records(s_scan_foreach, this);
 }
 
 char* Catalog::compute_mmap_filename(const char* log_paths)
@@ -349,10 +221,24 @@ char* Catalog::compute_mmap_filename(const char* log_paths)
 
 void Catalog::emit(const char *out_path)
 {
-	// The placer keeps track of file offsets we've already nailed down.
-	placer = new Placer(mf);
+	PlacementIfc* placement_algorithm;
+	if (zargs->placement_algorithm_enum == GREEDY_PLACEMENT)
+	{
+		placement_algorithm = new GreedyPlacement(zftp_block_size, zargs->pack_small_files);
+	}
+	else if (zargs->placement_algorithm_enum == STABLE_PLACEMENT)
+	{
+		placement_algorithm = new StablePlacement(zftp_block_size);
+	}
+	else
+	{
+		lite_assert(false);
+	}
 
-	zhdr = new ZHdr();
+	// The placer keeps track of file offsets we've already nailed down.
+	placer = new Placer(mf, zftp_block_size);
+
+	zhdr = new ZHdr(zftp_lg_block_size);
 	placer->place(zhdr);
 
 	string_table = new StringTable(mf);
@@ -365,23 +251,32 @@ void Catalog::emit(const char *out_path)
 	// making it expensive to walk the index in a partially-loaded zarfile.)
 	enumerate_entries();
 
+	// NB we could move the chunk table to the end of the file, if we wanted,
+	// to allow for a placement algorithm that changed the number of chunks.
+	// But keeping it at the front means that it's in the same block as the
+	// ZHdr, reducing the number of blocks that are *always* changed when
+	// the input changes. (We could also just leave a little headroom in
+	// the chunktable, or repeat the placement computation until we reach a
+	// fixpoint.)
 	placer->place(string_table);
 	zhdr->connect_string_table(string_table);
 	placer->place(chunk_table);
 	zhdr->connect_chunk_table(chunk_table);
+	fprintf(stderr, "string_table %d bytes\n", string_table->get_size());
+	fprintf(stderr, " chunk_table %d bytes\n", chunk_table->get_size());
 
 	// Now walk through it, making placement decisions to pack big
 	// chunks nicely.
-	place_chunks();
+	placement_algorithm->place_chunks(placer, &chunk_tree);
 
 	zhdr->set_dbg_zarfile_len(placer->get_offset());
 
 	// Now pass over the list of placed Emittables and actually squirt them out.
 	placer->emit(out_path);
 
-	fprintf(stderr, "Total padding used: %.1fkB (%.3f%%)\n",
-		dbg_total_padding*1.0/(1<<10),
-		dbg_total_padding*100.0/placer->get_total_size());
+	placer->dbg_report();
+
+	delete placer;
 }
 
 class ChunkCounter {
@@ -392,9 +287,9 @@ public:
 	ChunkCounter() : fresh(true), first_chunk_idx(-1), count(0) {}
 };
 
-void Catalog::add_chunk(uint32_t offset, uint32_t len, bool precious, CatalogEntry *ce, ChunkCounter *cc)
+void Catalog::add_chunk(uint32_t offset, uint32_t len, ChunkEntry::ChunkType chunk_type, CatalogEntry *ce, ChunkCounter *cc)
 {
-	ChunkEntry *chunk = new ChunkEntry(offset, len, precious, ce);
+	ChunkEntry *chunk = new ChunkEntry(offset, len, chunk_type, ce);
 	int idx = chunk_table->allocate(chunk);
 	chunk_tree.insert(new ChunkBySize(chunk));
 
@@ -406,60 +301,10 @@ void Catalog::add_chunk(uint32_t offset, uint32_t len, bool precious, CatalogEnt
 	cc->count += 1;
 }
 
-void Catalog::lookup_elf_ranges(ZFSReader* zf, LinkedList* out_ranges)
+const char *Catalog::path_from_url(const char *url)
 {
-	linked_list_init(out_ranges, standard_malloc_factory_init());
-
-	CatalogElfReaderWrapper cerw(zf);
-	if (cerw.eo() == NULL) { return; }
-
-	uint32_t start, len;
-
-	// section header table
-	start = cerw.eo()->ehdr->e_shoff;
-	len = cerw.eo()->ehdr->e_shnum * cerw.eo()->ehdr->e_shentsize;
-	linked_list_insert_tail(out_ranges, new MDRange(start, start+len));
-
-	// section header strings
-	start = cerw.eo()->shdr[cerw.eo()->ehdr->e_shstrndx].sh_offset;
-	len = cerw.eo()->shdr[cerw.eo()->ehdr->e_shstrndx].sh_size;
-	linked_list_insert_tail(out_ranges, new MDRange(start, start+len));
-
-	// strtab. (Maybe overkill; could tune ElfObj to not bother
-	// reading that stuff until required?)
-	int strtab_section_idx =
-		elfobj_find_section_index_by_name(cerw.eo(), ".strtab");
-	if (strtab_section_idx != (int)-1)
-	{
-		ElfWS_Shdr *strtab_shdr = &cerw.eo()->shdr[strtab_section_idx];
-			
-		start = strtab_shdr->sh_offset;
-		len = strtab_shdr->sh_size;
-		linked_list_insert_tail(out_ranges, new MDRange(start, start+len));
-	}
-}
-
-void Catalog::insert_elf_chunks(ZFSReader* zf, CatalogEntry* ce, ChunkCounter* cc)
-{
-	CatalogElfReaderWrapper cerw(zf);
-	if (cerw.eo() == NULL) { return; }
-
-	int phdr_count;
-	ElfWS_Phdr **phdrs = elfobj_get_phdrs(cerw.eo(), PT_LOAD, &phdr_count);
-	uint32_t max_mem_reserved = 0;
-	for (int phdr_idx=0; phdr_idx<phdr_count; phdr_idx++)
-	{
-		uint32_t mem_start = phdrs[phdr_idx]->p_vaddr - phdrs[0]->p_vaddr;
-		uint32_t mem_end = mem_start + phdrs[phdr_idx]->p_memsz;
-		max_mem_reserved = max(max_mem_reserved, mem_end);
-	}
-	uint32_t file_len = cerw.get_filelen();
-	uint32_t last_file_byte = min(max_mem_reserved, file_len);
-	uint32_t end_text_segment = phdrs[0]->p_filesz;
-	uint32_t first_byte = end_text_segment & ~0xfff;	// round to page start
-	add_chunk(first_byte, last_file_byte - first_byte, true, ce, cc);
-
-	free(phdrs);
+	lite_assert(strncmp(url, FILE_SCHEME, 5)==0);
+	return &url[5];
 }
 
 void Catalog::enumerate_entries()
@@ -486,81 +331,69 @@ void Catalog::enumerate_entries()
 		phdr_count += 1;
 
 		ChunkCounter cc;
-		uint32_t len = phdr->get_file_len();
-		if (len>0)
+
+		if (lite_starts_with(STAT_SCHEME, url))
 		{
-			ZFSReader *zf = file_system_view.open_url(url);
-
-			MmapBehavior* behavior = NULL;
-			if (lite_starts_with(FILE_SCHEME, url))
-			{
-				const char *path = path_from_url(url);
-				behavior = mmap_decoder->query_file(path, false);
-			}
-			if (behavior!=NULL)
-			{
-				lite_assert(zf!=NULL);	// but it was mmap()ed in the log! Huh?
-				bool rc;
-				uint32_t filelen;
-				rc = zf->get_filelen(&filelen);
-				lite_assert(rc);
-
-				uint32_t behavior_size = behavior->aligned_mapping_size;
-
-				LinkedList elf_ranges;
-				lookup_elf_ranges(zf, &elf_ranges);
-				zf = NULL;	// lookup_elf_ranges consumes zf
-				while (true)
-				{
-					MDRange* range = (MDRange*)
-						linked_list_remove_head(&elf_ranges);
-					if (range==NULL) { break; }
-					behavior->insert_range(range);
-					delete range;
-				}
-
-#define INCLUDE_ENTIRE_MMAPPED_FILES 0
-#if INCLUDE_ENTIRE_MMAPPED_FILES
-				// stretch fast_mmap size to entire file size, to ensure
-				// section headers can be read by elfobj_scan.
-				behavior_size = max(behavior_size, filelen);
-				// TODO this is a source of waste; it'll needlessly slurp
-				// in symbols in unstripped files, since they come before
-				// the section headers. (viz. midori.zguest).
-				// Rats! That cost me 120-74M = 46M! That's not gonna work.
-#endif
-
-				// and now round up modified len to a page, since fast_mmap
-				// needs to find zeros there.
-				behavior_size = ((behavior_size-1)&(~0xfff))+0x1000;
-
-				for (uint32_t copy=0; copy<behavior->aligned_mapping_copies; copy++)
-				{
-					add_chunk(0, behavior_size, false, ce, &cc);
-				}
-
-				LinkedListIterator lli;
-				for (ll_start(&behavior->precious_ranges, &lli);
-					ll_has_more(&lli);
-					ll_advance(&lli))
-				{
-					MDRange* range = (MDRange*) ll_read(&lli);
-					// precious ranges are always memcpy()d, and hence
-					// the client code can create the zeros itself;
-					// we don't need to hump them along inside the zarfile.
-					uint32_t end = min(range->end, filelen);
-					add_chunk(range->start, end - range->start, true, ce, &cc);
-				}
-			}
-			else
-			{
-				add_chunk(0, len, true, ce, &cc);
-				insert_elf_chunks(zf, ce, &cc);
-				zf = NULL;	// insert_elf_chunks consumes zf
-			}
-
-			delete zf;
+			// we synthesized this record; it's not in the trace_decoder.
+			add_chunk(0, phdr->get_file_len(), ChunkEntry::PRECIOUS, ce, &cc);
 		}
+		else if (phdr->is_dir())
+		{
+			// We don't record the range of reads for dirs in the trace client.
+			// (Not sure why.) But in any case, it seems like we'll always
+			// want the whole dir anyway, since dirs aren't in any particular
+			// order.
+			add_chunk(0, phdr->get_file_len(), ChunkEntry::PRECIOUS, ce, &cc);
+		}
+		else if (phdr->is_enoent())
+		{
+			// ENOENT records might have tprs anyway, when Jeremy's
+			// synthesizing them. Just skip them, to avoid getting
+			// confused between the ENOENT phdr with length 0
+			// and the non-empty tpr precious chunk.
+		}
+		else
+		{
+			const char* path = path_from_url(url);
+			TracePathRecord* tpr = trace_decoder->lookup(path);
+#define DEBUG_CHUNKS 0
+#if DEBUG_CHUNKS
+			fprintf(stderr, "Path: %s\n", path);
+#endif // DEBUG_CHUNKS
+
+			// Fast chunks
+			LinkedListIterator lli;
+			for (ll_start(&tpr->fast_chunks, &lli);
+				ll_has_more(&lli);
+				ll_advance(&lli))
+			{
+				FastChunk* fast_chunk = (FastChunk*) ll_read(&lli);
+#if DEBUG_CHUNKS
+				fprintf(stderr, "  fast %08x\n", fast_chunk->size);
+#endif // DEBUG_CHUNKS
+				add_chunk(fast_chunk->range.start, fast_chunk->range.size(), ChunkEntry::FAST, ce, &cc);
+			}
+
+			// Precious chunks
+			Range cursor;
+			bool found;
+			for (found = tpr->precious_chunks->first_range(&cursor);
+				found;
+				found = tpr->precious_chunks->next_range(cursor, &cursor))
+			{
+#if DEBUG_CHUNKS
+				fprintf(stderr, "  precious %08x -- %08x\n", cursor.start, cursor.end);
+#endif // DEBUG_CHUNKS
+				// don't (try to) store precious data past EOF; those come
+				// from mmap rounding up to page boundaries; the zeros
+				// are supplied by the client, not us.
+				Range trimmed(cursor.start,
+					min(cursor.end, phdr->get_file_len()));
+				lite_assert(trimmed.size()>0);
+				add_chunk(trimmed.start, trimmed.size(), ChunkEntry::PRECIOUS, ce, &cc);
+			}
+		}
+		lite_assert(!(phdr->get_file_len()==0 && cc.count>0)); // chunks without any file contents?!?
 		phdr->connect_chunks(cc.first_chunk_idx, cc.count);
 	}
 	zhdr->set_index_count(phdr_count);
@@ -568,54 +401,4 @@ void Catalog::enumerate_entries()
 
 void Catalog::place_chunks()
 {
-	while (true)
-	{
-		// try to fill up gaps at the end of a block with small files.
-		while (true)
-		{
-			ChunkBySize key(placer->gap_size());
-			ChunkBySize *cebs =
-				chunk_tree.findFirstLessThanOrEqualTo(&key);
-			if (cebs==NULL)
-			{
-				break;
-			}
-			ChunkEntry *next_small = cebs->get_chunk_entry();
-			chunk_tree.remove(next_small);
-#if DEBUG_SCHEDULER
-			fprintf(stderr, "I had a gap 0x%08x; best fit was 0x%08x: %s\n",
-				placer->gap_size(),
-				next_small->get_size(),
-				next_small->get_url());
-#endif // DEBUG_SCHEDULER
-// debug hooks
-//			ChunkBySize *d_cebs = chunk_tree.findFirstLessThanOrEqualTo(&key);
-//			int c = cebs->cmp(d_cebs);
-//			(void) c;
-			placer->place(next_small);
-		}
-		// if there are no more files small enough to fit in the remaining gap,
-		// and there are still big files to come, add padding.
-		ChunkBySize *cebs = chunk_tree.findMax();
-		if (cebs==NULL)
-		{
-			// oh, we're done.
-			break;
-		}
-		ChunkEntry *next_big = cebs->get_chunk_entry();
-		chunk_tree.remove(next_big);
-#if DEBUG_SCHEDULER
-		fprintf(stderr, "Gap too small 0x%08x; found biggest 0x%08x: %s\n",
-			placer->gap_size(),
-			next_big->get_size(),
-			next_big->get_url());
-#endif // DEBUG_SCHEDULER
-		if (placer->gap_size() > 0 && next_big->get_size()>ZFTP_BLOCK_SIZE)
-		{
-			uint32_t padding_size = placer->gap_size();
-			dbg_total_padding += padding_size;
-			placer->place(new Padding(padding_size));
-		}
-		placer->place(next_big);
-	}
 }

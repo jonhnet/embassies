@@ -11,10 +11,11 @@ RunConfig::RunConfig(MallocFactory *mf, const char **incoming_envp)
 	this->incoming_envp = incoming_envp;
 }
 
-void RunConfig::add_vnc()
+Zone* RunConfig::add_vnc()
 {
 	VncZone *vncZone = new VncZone(&xvnc_start_detector);
 	linked_list_insert_tail(&zones, vncZone);
+	return vncZone;
 }
 
 char *RunConfig::map_pie(const char *appname)

@@ -7,15 +7,19 @@ ZTArgs::ZTArgs(int argc, char **argv)
 	zarfile = NULL;
 	extract_path = NULL;
 	dir_path = NULL;
+	flat_unpack_dest = NULL;
+	verbose = false;
 	mode = unset;
 
 	argc-=1; argv+=1;
 
 	while (argc>0)
 	{
+		CONSUME_BOOL("--verbose", verbose);
 		CONSUME_STRING("--zarfile", zarfile);
 		CONSUME_ARG("--extract", extract_path, (check(mode==unset, "too many modes"), mode=extract, value));
 		CONSUME_ARG("--dir", dir_path, (check(mode==unset, "too many modes"), mode=list_dir, value));
+		CONSUME_ARG("--flat-unpack", flat_unpack_dest, (check(mode==unset, "too many modes"), mode=flat_unpack, value));
 		CONSUME_OPTION_ASSIGN("--list-files", mode, unset, list_files);
 		CONSUME_OPTION_ASSIGN("--list-chunks", mode, unset, list_chunks);
 

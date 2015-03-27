@@ -33,6 +33,7 @@ public:
 	bool equals(DataRange *other);
 
 	inline bool is_empty() { return _start==_end; }
+	bool intersects(DataRange other) { return !intersect(other).is_empty(); }
 
 private:
 	uint32_t _start;

@@ -31,7 +31,9 @@ public:
 	DataRange get_file_data_range();
 	
 //	void read_set(DataRange range, uint8_t *buf, uint32_t size);
-	void read(Buf* vbuf, uint32_t offset, uint32_t size);
+	void write_payload_to_buf(Buf* vbuf, uint32_t data_offset, uint32_t size);
+		// ZFetch uses this interface.
+
 	bool is_dir();
 
 private:

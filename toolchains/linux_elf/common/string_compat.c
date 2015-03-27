@@ -1,5 +1,5 @@
 // We carefully use different string funcs, so it's obvious that
-// we're not colliding with libc.
+// we're not bonking into libc.
 // But we want to link -lcrypto's SHA256, which depends on these
 // names.
 

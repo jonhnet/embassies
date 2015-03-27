@@ -31,7 +31,7 @@ private:
 	ChunkTable* _chunk_table;
 
 public:
-	ZHdr();
+	ZHdr(uint32_t zftp_lg_block_size);
 	void set_dbg_zarfile_len(uint32_t dbg_zarfile_len);
 
 	virtual uint32_t get_size();
@@ -41,5 +41,6 @@ public:
 	void connect_string_table(StringTable *string_table) { _string_table = string_table; }
 	void connect_chunk_table(ChunkTable *chunk_table) { _chunk_table = chunk_table; }
 
+	virtual const char* get_type();
 	virtual void emit(FILE *fp);
 };

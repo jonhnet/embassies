@@ -29,7 +29,7 @@ public:
 	virtual ~CounterSocket();
 
 	virtual ZeroCopyBuf *zc_allocate(uint32_t payload_len);
-	virtual bool zc_send(UDPEndpoint *remote, ZeroCopyBuf *zcb);
+	virtual bool zc_send(UDPEndpoint *remote, ZeroCopyBuf *zcb, uint32_t final_len);
 	virtual void zc_release(ZeroCopyBuf *zcb);
 
 	virtual ZeroCopyBuf *recvfrom(UDPEndpoint *out_remote);
@@ -41,7 +41,11 @@ private:
 	uint32_t sent_bytes, received_bytes;
 public:
 	SocketFactory_Counter(SocketFactory* usf);
-	virtual AbstractSocket *new_socket(UDPEndpoint *local, bool want_timeouts);
-	void _count(int _sent_bytes);
+	virtual AbstractSocket *new_socket(UDPEndpoint* local, UDPEndpoint* remote, bool want_timeouts);
+	void _count_send(int _sent_bytes);
+	void _count_received(int _received_bytes);
+	void reset_stats();
+	uint32_t get_sent_bytes() { return sent_bytes; }
+	uint32_t get_received_bytes() { return received_bytes; }
 };
 

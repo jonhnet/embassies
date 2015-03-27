@@ -23,7 +23,7 @@
 #include "LiteLib.h"
 #endif
 
-void *load_all(const char *path)
+void *load_all(const char *path, uint32_t *size)
 {
 	int fd = open(path, O_RDONLY);
 	assert(fd>=0);
@@ -42,6 +42,7 @@ void *load_all(const char *path)
 	}
 	assert(togo==0);
 	assert(done==statbuf.st_size);
+	*size = statbuf.st_size;
 	return buffer;
 }
 
@@ -91,6 +92,7 @@ int main(int argc, char **argv)
 
 	bool wait_for_debugger = false;
 	bool raw_binary = false;
+	void* dbg_abs_address = NULL;
 
 	argc--; argv++;
 	while (argc>0)
@@ -98,6 +100,16 @@ int main(int argc, char **argv)
 		if (strcmp(argv[0], "--raw-binary")==0)
 		{
 			raw_binary = true;
+			argc--; argv++;
+		}
+		else if (strcmp(argv[0], "--abs-address")==0)
+		{
+			// debug-only expedient to try loading a nonrelocatable boot block.
+			argc--; argv++;
+			assert(argc>0);
+			uint32_t addr;
+			sscanf(argv[0], "%x", &addr);
+			dbg_abs_address = (void*) addr;
 			argc--; argv++;
 		}
 		else if (strcmp(argv[0], "--wait-for-debugger")==0)
@@ -120,14 +132,26 @@ int main(int argc, char **argv)
 	while (wait_for_debugger) { sleep(1); }
 
 	void* binary_pointer;
+	uint32_t dbg_size;
 	ZPubKey* endorsing_key = NULL;
 	if (raw_binary)
 	{
-		binary_pointer = load_all(loader_path);
+		binary_pointer = load_all(loader_path, &dbg_size);
+
+		if (dbg_abs_address!=NULL)
+		{
+			void* new_place = mmap(dbg_abs_address, dbg_size, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+			lite_assert(new_place!=MAP_FAILED);
+			memcpy(new_place, binary_pointer, dbg_size);
+			binary_pointer = new_place;
+		}
 	}
 	else
 	{
-		SignedBinary *signed_binary = (SignedBinary*) load_all(loader_path);
+		lite_assert(dbg_abs_address==NULL);
+		SignedBinary *signed_binary =
+			(SignedBinary*) load_all(loader_path, &dbg_size);
+		lite_assert(Z_NTOHG(signed_binary->magic) == SIGNED_BINARY_MAGIC);
 
 		ZCert *zcert = new ZCert(
 			(uint8_t*) &signed_binary[1],

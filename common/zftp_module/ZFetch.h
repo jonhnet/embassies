@@ -24,7 +24,8 @@ class ZSyntheticFileRequest;
 
 class ZFetch {
 public:
-	ZFetch(ZCache *zcache, ZLookupClient *zlookup_client);
+	enum { DEFAULT_TIMEOUT = 1500 };
+	ZFetch(ZCache *zcache, ZLookupClient *zlookup_client, int timeout_ms);
 	~ZFetch();
 	bool fetch(const char *url);
 
@@ -41,6 +42,7 @@ private:
 	ZCache *zcache;
 	ZLookupClient *zlookup_client;
 	ZSyntheticFileRequest *zreq;
+	int timeout_ms;
 
 	ValidFileResult *result;	// copy of data ptr owned by zreq; we don't delete.
 	uint32_t payload_size;

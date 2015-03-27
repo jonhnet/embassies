@@ -24,7 +24,11 @@
 
 class DTArgs {
 public:
+	bool print_hashes;
+	bool position_dependent;
 	const char *file[2];
+	bool list_blocks;
+	bool blame_mismatches;
 
 public:
 	DTArgs(int argc, char **argv);

@@ -131,12 +131,13 @@ void load_elf_pal(ZoogVM *vm, char *path)
 void load_app(ZoogVM *vm, const char *path)
 {
 	// NB using ElfFlatReader for its reading abilities;
-	// there's nothing ELFy about the app binary. It's a zoog bootblock.
+	// there's nothing ELFy about the app binary. It's a zoog SignedBinary.
 	ElfFlatReader efr;
 	efr_read_file(&efr, path);
 	uint8_t *contents = (uint8_t*) (efr.ifc.elf_read_alloc)
 		(&efr.ifc, 0, efr.ifc.size);
 	SignedBinary *sb = (SignedBinary*) contents;
+	assert(Z_NTOHG(sb->magic) == 0x5a53474e);
 	vm->map_app_code(
 		contents+sizeof(SignedBinary)+Z_NTOHG(sb->cert_len),
 		Z_NTOHG(sb->binary_len),

@@ -3,7 +3,7 @@ ZOOG_ROOT=../../../..
 FETCH=$(ZOOG_ROOT)/toolchains/linux_elf/scripts/fetch-code.py
 OLD_LIBPNG_FILENAME=libpng12-0_1.2.44-1+squeeze1_i386.deb
 OLD_LIBPNG_URL=http://packages.vyatta.com/debian-security/pool/updates/main/libp/libpng/$(OLD_LIBPNG_FILENAME)
-CACHE_PATH=$(ZOOG_ROOT)/external-code/old-libpng/
+CACHE_PATH=$(ZOOG_ROOT)/external-code/old-libpng/$(OLD_LIBPNG_FILENAME)
 
 BUILD=./build
 

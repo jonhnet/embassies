@@ -26,6 +26,8 @@ void ZSyntheticFileRequest::_init(ZLCEmit *ze, hash_t *hash, SyncFactory *sf, ui
 	_zrp.padding_request = z_htong(0, sizeof(_zrp.padding_request));
 	_zrp.data_start = z_htong(data_start, sizeof(_zrp.data_start));
 	_zrp.data_end = z_htong(data_end, sizeof(_zrp.data_end));
+	_zrp.compression_context.state_id = z_htong(ZFTP_NO_COMPRESSION, sizeof(_zrp.compression_context.state_id));
+	_zrp.compression_context.seq_id = z_htong(0, sizeof(_zrp.compression_context.seq_id));
 	load((uint8_t*) &_zrp, sizeof(_zrp));
 	bool rc = parse(ze, true);
 	lite_assert(rc);
@@ -48,7 +50,14 @@ InternalFileResult *ZSyntheticFileRequest::wait_reply(int timeout_ms)
 {
 	if (result==NULL)
 	{
-		event->wait(timeout_ms);
+		if (timeout_ms < 0)
+		{
+			event->wait();
+		}
+		else
+		{
+			event->wait(timeout_ms);
+		}
 	}
 	return result;
 }

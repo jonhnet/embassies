@@ -406,7 +406,7 @@ Tx::Disp Tx::handle(XpReqZutexWake *req, XpReplyZutexWake *reply)
 	}
 #endif // DEBUG_ZUTEX
 
-	lite_assert(req->n_wake > 0);	// because otherwise that'd be broken.
+	lite_assert(req->n_wake > 0);	// because otherwise that'd be nuts.
 	for (i=0; i<req->n_wake; i++)
 	{
 		MThread *queued = zq->pop();

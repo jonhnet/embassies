@@ -9,10 +9,11 @@ GBlitProvider::GBlitProvider(
 
 BlitProviderCanvasIfc *GBlitProvider::create_canvas(
 	ZCanvasID canvas_id,
-	WindowRect *wr,
+	ZRectangle *wr,
 	BlitCanvasAcceptorIfc *canvas_acceptor,
 	ProviderEventDeliveryIfc *event_delivery_ifc,
-	BlitProviderCanvasIfc *parent)
+	BlitProviderCanvasIfc *parent,
+	const char* window_label)
 {
 	GCanvasAcceptorIfc *gacceptor = (GCanvasAcceptorIfc *) canvas_acceptor;
 	GBlitProviderCanvas *gparent = (GBlitProviderCanvas *) parent;
@@ -21,6 +22,7 @@ BlitProviderCanvasIfc *GBlitProvider::create_canvas(
 		this,
 		canvas_id,
 		wr,
+		window_label,
 		gacceptor,
 		event_delivery_ifc,
 		gparent,

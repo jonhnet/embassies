@@ -1,17 +1,18 @@
---- orig/rijndael-alg-fst.c	2012-09-20 14:29:53.000000000 -0700
-+++ ../crypto/rijndael.c	2012-09-15 22:16:57.000000000 -0700
-@@ -25,8 +25,9 @@
+--- orig/rijndael-alg-fst.c	2012-09-26 19:07:01.027982047 -0700
++++ patched/rijndael.c	2012-12-21 21:58:58.435945260 -0800
+@@ -23,10 +23,8 @@
+  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   */
- #include <assert.h>
- #include <stdlib.h>
-+#include <string.h>
+-#include <assert.h>
+-#include <stdlib.h>
  
 -#include "rijndael-alg-fst.h"
 +#include "rijndael.h"
  
  /*
  Te0[x] = S [x].[02, 01, 01, 03];
-@@ -851,7 +852,7 @@
+@@ -851,7 +849,7 @@
  	return Nr;
  }
  
@@ -20,7 +21,7 @@
  	u32 s0, s1, s2, s3, t0, t1, t2, t3;
  #ifndef FULL_UNROLL
      int r;
-@@ -1032,7 +1033,7 @@
+@@ -1032,7 +1030,7 @@
  	PUTU32(ct + 12, s3);
  }
  

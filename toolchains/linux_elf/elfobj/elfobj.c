@@ -119,6 +119,10 @@ ElfWS_Shdr *elfobj_find_shdr_by_type(ElfObj *eo, ElfWS_Word type)
 
 const char *elfobj_get_string(ElfObj *eo, const char *strtable, ElfWS_Word sring_table_index)
 {
+	if (strtable==NULL)
+	{
+		return NULL;
+	}
 	return &strtable[sring_table_index];
 }
 

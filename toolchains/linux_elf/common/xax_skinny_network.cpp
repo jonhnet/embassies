@@ -281,7 +281,7 @@ XaxSkinnyNetwork::XaxSkinnyNetwork(ZoogDispatchTable_v1 *zdt, MallocFactory *mf)
 
 	// tick delivery routine special-cases this handler, never adding to its
 	// queue. We used to use a bunch of uuuugly C polymorphism, but if
-	// we want to do that again, let's just tough up and convert this
+	// we want to do that again, let's just bone up and convert this
 	// class to C++. For now, we special-case.
 	clock_sentinel =
 		network_register_handler(IPVER_ANY, PROTOCOL_UDP, UDP_PORT_FAKE_TIMER);
@@ -415,7 +415,7 @@ ZeroCopyBuf *xax_skinny_socket_recv_packet(XaxSkinnySocket *skinny, UDPEndpoint 
 				// view zcb now responsible for freeing backing zcb.
 			msg->zcb = NULL;	// we've got it, thanks.
 				// Ugh. Yes. I'm communicating the ownership change by
-				// reaching into the object and nulling its field. Yuck.
+				// reaching into the object and nulling its field. Barf.
 
 			cheesy_free(msg);
 			break;

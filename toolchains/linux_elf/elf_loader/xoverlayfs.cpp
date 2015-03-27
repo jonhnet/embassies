@@ -44,6 +44,10 @@ XaxVFSHandleIfc *XOverlayFS::open(
 	ALLOCA_NEWPATH();
 	XVFSHandleWrapper *wrapper =
 		xpe_open_hook_handle(xpe, err, newpath, oflag, open_hooks);
+	if ((*err)!=XFS_NO_ERROR)
+	{
+		return NULL;
+	}
 	return wrapper->get_underlying_handle();
 }
 

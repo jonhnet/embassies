@@ -18,8 +18,8 @@
 #endif
 #include "ZFSRDir_Union.h"
 
-FileSystemView::FileSystemView(MallocFactory *mf, SyncFactory *sf)
-	: mf(mf), sf(sf), max_prefix(0)
+FileSystemView::FileSystemView(MallocFactory *mf, SyncFactory *sf, bool hide_icons_dir)
+	: mf(mf), sf(sf), hide_icons_dir(hide_icons_dir), max_prefix(0)
 {
 	linked_list_init(&overlays, mf);
 }
@@ -72,7 +72,7 @@ ZFSReader *FileSystemView::open_path(const char *path)
 
 	// Ugly manual neutering, since overlay mechanism doesn't give
 	// a way to kill a directory tree.
-	if (lite_starts_with("/usr/share/icons/hicolor", path))
+	if (hide_icons_dir && lite_starts_with("/usr/share/icons/hicolor", path))
 
 	{
 		return NULL;

@@ -44,7 +44,7 @@ private:
 
 	ZCanvasID canvas_id;
 
-	WindowRect wpos;
+	ZRectangle wpos;
 	Nitpicker::Connection *nitpicker;
 	Nitpicker::View_capability _cap;
 	
@@ -64,13 +64,14 @@ private:
 
 	friend class InputHandlerThread;
 	
-	void open_nitpicker_window(WindowRect *wr);
+	void open_nitpicker_window(ZRectangle *wr, const char* window_label);
 
 public:
 	GBlitProviderCanvas(
 		GBlitProvider *gblit_provider,
 		ZCanvasID canvas_id,
-		WindowRect *wr,
+		ZRectangle *wr,
+		const char* window_label,
 		GCanvasAcceptorIfc *gacceptor,
 		ProviderEventDeliveryIfc *event_delivery_ifc,
 		GBlitProviderCanvas *parent_gbc,
@@ -83,8 +84,8 @@ public:
 	virtual int cmp(Hashable *other);
 
 	virtual ZCanvasID get_canvas_id();
-	virtual void update_image(WindowRect *wr);
-	virtual void reconfigure(WindowRect *wr);
+	virtual void update_image(ZRectangle *wr);
+	virtual void reconfigure(ZRectangle *wr);
 
 };
 

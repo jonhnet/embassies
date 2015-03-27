@@ -234,7 +234,12 @@ void ZoogVCPU::run()
 	sregs.cr4 = 0;
 	sregs.cr4 |= (1<<9); // Set the OSFXSR bit		(MMX/SSE support)
 	sregs.cr4 |= (1<<10); // Set the OSXMMEXCPT bit (MMX/SSE support)
-	sregs.cr4 |= (1<<18); // Enable use of XSETBV/XGETBC (AVX support)
+
+	if (vm->avx_available())
+	{
+		//fprintf(stderr, "Enabling AVX\n");
+		sregs.cr4 |= (1<<18); // Enable use of XSETBV/XGETBC (AVX support)
+	}
 
 	my_thread_id = syscall(__NR_gettid); //gettid();
 
@@ -395,7 +400,7 @@ void ZoogVCPU::service_loop()
 		}
 		case KVM_EXIT_MMIO:
 		{
-			// huh -- it seemed to explode on zero-address memory.
+			// huh -- it seemed to puke on zero-address memory.
 			// which is odd; I don't think we ever unmapped the zero page.
 			fprintf(stderr, "KVM_EXIT_MMIO: \?\?!\?\n");
 			vm->request_coredump();
@@ -776,7 +781,7 @@ void ZoogVCPU::launch_application(xa_launch_application *xa_guest)
 	sb = *sb_ptr;
 
 	uint32_t sb_len;
-	sb_len = Z_NTOHG(sb.cert_len) + Z_NTOHG(sb.binary_len);
+	sb_len = sizeof(SignedBinary) + Z_NTOHG(sb.cert_len) + Z_NTOHG(sb.binary_len);
 
 	// read out entire signed_binary to pass to coordinator
 	void *host_signed_binary;

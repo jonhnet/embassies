@@ -47,13 +47,13 @@ namespace ZoogMonitor {
 			bool valid;	// false if no packets ready
 			Dataspace_capability cap;
 		};
-		struct AcceptCanvasReply {
+		struct MapCanvasReply {
 			ZCanvas canvas;
 			Dataspace_capability framebuffer_dataspace_cap;
 		};
 
+		
 		virtual Dataspace_capability map_dispatch_region(uint32_t region_count) = 0;
-
 		virtual Dataspace_capability get_boot_block() = 0;
 
 		virtual Dataspace_capability alloc_net_buffer(uint32_t payload_size) = 0;
@@ -62,7 +62,8 @@ namespace ZoogMonitor {
 			Signal_context_capability network_cap,
 			Signal_context_capability ui_cap) = 0;
 		virtual void core_dump_invoke_sigh(Signal_context_capability cap) = 0;
-		virtual AcceptCanvasReply accept_canvas(ViewportID viewport_id) = 0;
+		virtual void start_gate_sigh(Signal_context_capability start_gate_cap) = 0;
+		virtual MapCanvasReply map_canvas(ViewportID viewport_id) = 0;
 
 		struct DispatchGetIfconfig {
 			struct {
@@ -81,13 +82,15 @@ namespace ZoogMonitor {
 				Zoog_genode_net_buffer_id buffer_id;
 			} in;
 		};
+		struct DispatchUnmapCanvas {
+			struct {
+				ZCanvasID canvas_id;
+			} in;
+		};
 		struct DispatchUpdateCanvas {
 			struct {
 				ZCanvasID canvas_id;
-				uint32_t x;
-				uint32_t y;
-				uint32_t width;
-				uint32_t height;
+				ZRectangle rect;
 			} in;
 		};
 		struct DispatchReceiveUIEvent {
@@ -95,29 +98,118 @@ namespace ZoogMonitor {
 				ZoogUIEvent evt;
 			} out;
 		};
-		struct DispatchUpdateViewport {
+		struct DispatchNewToplevelViewport {
 			struct {
 				ViewportID viewport_id;
-				uint32_t x;
-				uint32_t y;
-				uint32_t width;
-				uint32_t height;
+			} out;
+		};
+		struct DispatchVerifyLabel {
+			struct {
+				uint32_t buffer_size;
+				Zoog_genode_net_buffer_id buffer_id;
+			} in;
+			struct {
+				bool result;
+			} out;
+		};
+
+		struct DispatchSubletViewport {
+			struct {
+				ViewportID tenant_viewport;
+				ZRectangle rectangle;
+			} in;
+			struct {
+				ViewportID landlord_viewport;
+				Deed deed;
+			} out;
+		};
+
+		struct DispatchAcceptViewport {
+			struct {
+				Deed deed;
+			} in;
+			struct {
+				ViewportID tenant_viewport;
+				DeedKey deed_key;
+			} out;
+		};
+
+		struct DispatchRepossessViewport {
+			struct {
+				ViewportID landlord_viewport;
 			} in;
 		};
-		struct DispatchCloseCanvas {
+				
+		struct DispatchGetDeedKey {
 			struct {
-				ZCanvasID canvas_id;
+				ViewportID landlord_viewport;
 			} in;
+			struct {
+				DeedKey deed_key;
+			} out;
+		};
+				
+		struct DispatchTransferViewport {
+			struct {
+				ViewportID tenant_viewport;
+			} in;
+			struct {
+				Deed deed;
+			} out;
+		};
+
+		struct DispatchLaunchApplication {
+			struct {
+				uint32_t buffer_size;
+				Zoog_genode_net_buffer_id buffer_id;
+			} in;
+		};
+
+		struct DispatchDebugWriteChannelOpen {
+			struct {
+				Zoog_genode_net_buffer_id buffer_id;
+				uint32_t channel_name_size;	// string in the net_buffer
+				uint32_t data_size;			// data coming in pieces via Write
+			} in;
+		};
+
+		struct DispatchDebugWriteChannelWrite {
+			struct {
+				Zoog_genode_net_buffer_id buffer_id;
+				uint32_t buffer_size;
+			} in;
+		};
+
+		struct DispatchDebugWriteChannelClose {
+		};
+
+		struct DispatchAllocateMemory {
+			struct {
+				uint32_t length;
+			} in;
+			// uses out_dataspace_capability.
 		};
 
 		enum DispatchOp {
 			do_get_ifconfig,
 			do_send_net_buffer,
 			do_free_net_buffer,
+			do_unmap_canvas,
 			do_update_canvas,
 			do_receive_ui_event,
-			do_update_viewport,
-			do_close_canvas,
+			do_new_toplevel_viewport,
+			do_verify_label,
+			do_sublet_viewport,
+			do_accept_viewport,
+			do_repossess_viewport,
+			do_get_deed_key,
+			do_transfer_viewport,
+			do_launch_application,
+			do_allocate_memory,
+
+			do_debug_write_channel_open,
+			do_debug_write_channel_write,
+			do_debug_write_channel_close,
 		};
 		struct Dispatch {
 			DispatchOp opcode;
@@ -125,11 +217,24 @@ namespace ZoogMonitor {
 				DispatchGetIfconfig get_ifconfig;
 				DispatchSendNetBuffer send_net_buffer;
 				DispatchFreeNetBuffer free_net_buffer;
+				DispatchUnmapCanvas unmap_canvas;
 				DispatchUpdateCanvas update_canvas;
 				DispatchReceiveUIEvent receive_ui_event;
-				DispatchUpdateViewport update_viewport;
-				DispatchCloseCanvas close_canvas;
+				DispatchNewToplevelViewport new_toplevel_viewport;
+				DispatchVerifyLabel verify_label;
+				DispatchSubletViewport sublet_viewport;
+				DispatchAcceptViewport accept_viewport;
+				DispatchRepossessViewport repossess_viewport;
+				DispatchGetDeedKey get_deed_key;
+				DispatchTransferViewport transfer_viewport;
+				DispatchLaunchApplication launch_application;
+				DispatchAllocateMemory allocate_memory;
+
+				DispatchDebugWriteChannelOpen debug_write_channel_open;
+				DispatchDebugWriteChannelWrite debug_write_channel_write;
+				DispatchDebugWriteChannelClose debug_write_channel_close;
 			} un;
+			Dataspace_capability out_dataspace_capability;
 		};
 
 		virtual void dispatch_message(uint32_t index) = 0;
@@ -145,7 +250,8 @@ namespace ZoogMonitor {
 		GENODE_RPC(Rpc_receive_net_buffer, Receive_net_buffer_reply, receive_net_buffer);
 		GENODE_RPC(Rpc_event_receive_sighs, void, event_receive_sighs, Signal_context_capability, Signal_context_capability);
 		GENODE_RPC(Rpc_core_dump_invoke_sigh, void, core_dump_invoke_sigh, Signal_context_capability);
-		GENODE_RPC(Rpc_accept_canvas, AcceptCanvasReply, accept_canvas, ViewportID);
+		GENODE_RPC(Rpc_start_gate_sigh, void, start_gate_sigh, Signal_context_capability);
+		GENODE_RPC(Rpc_map_canvas, MapCanvasReply, map_canvas, ViewportID);
 		GENODE_RPC(Rpc_dispatch_message, void, dispatch_message, uint32_t);
 
 		GENODE_RPC_INTERFACE(
@@ -155,7 +261,8 @@ namespace ZoogMonitor {
 			Rpc_receive_net_buffer,
 			Rpc_event_receive_sighs,
 			Rpc_core_dump_invoke_sigh,
-			Rpc_accept_canvas,
+			Rpc_start_gate_sigh,
+			Rpc_map_canvas,
 			Rpc_dispatch_message
 			);
 	};

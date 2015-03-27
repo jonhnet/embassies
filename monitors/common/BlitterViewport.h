@@ -19,7 +19,6 @@
 #include "SyncFactory.h"
 #include "linked_list.h"
 #include "pal_abi/pal_ui.h"
-#include "WindowRect.h"
 #include "BlitPalIfc.h"
 #include "BlitProviderIfc.h"
 #include "ViewportHandle.h"

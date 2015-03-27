@@ -26,8 +26,9 @@ private:
 	UnionVFS *union_vfs;
 	XaxVFSIfc *vfs;
 	SyncFactory_Zutex *sf;
+	TraceCollector* traceCollector;
 
 public:
-	ZLCVFS_Wrapper(XaxPosixEmulation *xpe, const char *path, const char *zarfile_path);
+	ZLCVFS_Wrapper(XaxPosixEmulation *xpe, const char *path, const char *zarfile_path, bool trace);
 	void liberate();
 };

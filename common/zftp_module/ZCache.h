@@ -27,6 +27,8 @@
 #include "ZBlockDB.h"
 #include "ZOrigin.h"
 #include "ThreadFactory.h"
+#include "ZCompressionIfc.h"
+#include "PerfMeasureIfc.h"
 
 class ZLookupRequest;
 class ZFileServer;
@@ -36,7 +38,7 @@ class ZLCArgs;
 
 class ZCache {
 public:
-	ZCache(ZLCArgs *zargs, MallocFactory *mf, SyncFactory *sf, ZLCEmit *ze, SendBufferFactory *sbf);
+	ZCache(ZLCArgs *zargs, MallocFactory *mf, SyncFactory *sf, ZLCEmit *ze, SendBufferFactory *sbf, ZCompressionIfc* zcompression);
 	~ZCache();
 
 	void configure(
@@ -62,9 +64,15 @@ public:
 
 	SendBufferFactory *get_send_buffer_factory() { return sbf; }
 
+	ZCompressionIfc* get_compression() { return zcompression; }
+
+	void configure_perf_measure_ifc(PerfMeasureIfc* pmi);
+	PerfMeasureIfc* get_perf_measure_ifc() { return pmi; }
+
 public:
 	MallocFactory *mf;
 	SyncFactory *sf;
+	ZCompressionIfc* zcompression;
 	hash_t hash_of_ZFTP_BLOCK_SIZE_zeros;
 	ZFileServer *zfile_server;
 	ZFileClient *zfile_client;
@@ -109,6 +117,7 @@ private:
 	HashTable name_to_origin;
 	ZLCEmit *ze;
 	SendBufferFactory *sbf;
+	PerfMeasureIfc* pmi;
 
 	SyncFactoryEvent *configured;
 };

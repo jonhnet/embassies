@@ -37,6 +37,7 @@ public:
 	virtual void read(
 		XfsErr *err, void *dst, size_t len, uint64_t offset);
 	virtual void* fast_mmap(size_t len, uint64_t offset);
+	virtual void trace_mmap(size_t len, uint64_t offset, bool fast);
 	virtual void write(
 		XfsErr *err, const void *src, size_t len, uint64_t offset);
 	virtual uint32_t get_dir_len(XfsErr *err);

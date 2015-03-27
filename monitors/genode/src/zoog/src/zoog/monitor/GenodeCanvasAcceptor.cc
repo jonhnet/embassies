@@ -1,15 +1,15 @@
 #include "GenodeCanvasAcceptor.h"
 
-GenodeCanvasAcceptor::GenodeCanvasAcceptor(ZoogMonitor::Session::AcceptCanvasReply *acr)
-	: acr(acr)
+GenodeCanvasAcceptor::GenodeCanvasAcceptor(ZoogMonitor::Session::MapCanvasReply *mcr)
+	: mcr(mcr)
 {}
 
 void GenodeCanvasAcceptor::set_fb_dataspace(Genode::Dataspace_capability dcap)
 {
-	acr->framebuffer_dataspace_cap = dcap;
+	mcr->framebuffer_dataspace_cap = dcap;
 }
 
 ZCanvas *GenodeCanvasAcceptor::get_zoog_canvas()
 {
-	return &acr->canvas;
+	return &mcr->canvas;
 }

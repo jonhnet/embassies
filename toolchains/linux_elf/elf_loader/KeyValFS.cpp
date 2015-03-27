@@ -127,7 +127,7 @@ KeyValFS::KeyValFS(XaxPosixEmulation* xpe, const char* path, bool encrypted) {
 
 	SocketFactory* socket_factory = new SocketFactory_Skinny(xpe->xax_skinny_network);
   AbstractSocket* server_sock = socket_factory->new_socket(
-			socket_factory->get_inaddr_any(ipv4), true);
+			socket_factory->get_inaddr_any(ipv4), NULL, true);
   lite_assert(server_sock);
 	delete socket_factory;
 

@@ -17,6 +17,13 @@
 #pragma once
 
 #include "xax_network_defs.h"
+#include "linked_list.h"
+
+typedef struct s_ZCompressionArgs {
+	bool use_compression;
+	int zlib_compression_level;
+	int zlib_compression_strategy;
+} ZCompressionArgs;
 
 class ZLCArgs {
 public:
@@ -32,13 +39,19 @@ public:
 
 	UDPEndpoint *listen_lookup;
 	UDPEndpoint *listen_zftp;
+	bool use_tcp;
 	int max_payload;
 
 	int run_test_harness;
+	const char *warm_url;	// fetch this and then reset counters
 	const char *fetch_url;
+	bool show_payload;
 	bool probe;
 	bool dump_db;
+	bool print_net_stats;
 	const char *log_paths;
+	int fetch_timeout_ms;
+	ZCompressionArgs compression_args;
 
 private:
 	void _init_empty();

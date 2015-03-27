@@ -68,7 +68,7 @@ void ZarfileHandleChunkDecoder::underlying_zarfile_read(
 //////////////////////////////////////////////////////////////////////////////
 
 ZarfileHandle::ZarfileHandle(ZarfileVFS *zvfs, ZF_Phdr *phdr, char *url_for_stat)
-	: ZFTPDecoder(zvfs->mf, zvfs, url_for_stat)
+	: ZFTPDecoder(zvfs->mf, zvfs, url_for_stat, NULL)
 {
 	this->zvfs = zvfs;
 	this->phdr = phdr;
@@ -81,7 +81,7 @@ ZarfileHandle::~ZarfileHandle()
 bool ZarfileHandle::is_dir()
 {
 	// return (Z_NTOHG(this->phdr->protocol_metadata.flags) & ZFTP_METADATA_FLAG_ISDIR)!=0;
-	// Ugh -- zarfile contents are little-endian. Rats.
+	// Ugh -- zarfile contents are little-endian. Puke.
 	return (phdr->protocol_metadata.flags & ZFTP_METADATA_FLAG_ISDIR)!=0;
 }
 
@@ -168,6 +168,8 @@ uint64_t ZarfileHandle::get_file_len()
 
 //////////////////////////////////////////////////////////////////////////////
 
+#define SANITY(c)	{ if (!(c)) { ZLC_COMPLAIN(ze, "ZarfileVFS failing unexpectedly: " #c "\n"); goto fail; } }
+
 ZarfileVFS::ZarfileVFS(MallocFactory *mf, SyncFactory* sf, XaxVFSHandleIfc *zarfile_hdl, ZLCEmit *ze)
 {
 	ptable = NULL;
@@ -183,22 +185,22 @@ ZarfileVFS::ZarfileVFS(MallocFactory *mf, SyncFactory* sf, XaxVFSHandleIfc *zarf
 	XfsErr err;
 
 	zarfile_hdl->read(&err, &zhdr, sizeof(zhdr), 0);
-	if (err != XFS_NO_ERROR) { goto fail; }
+	SANITY(err==XFS_NO_ERROR);
 
-	if (zhdr.z_magic != Z_MAGIC) { goto fail; }
-	if (zhdr.z_version != Z_VERSION) { goto fail; }
-	if (zhdr.z_path_entsz != sizeof(ZF_Phdr)) { goto fail; }
+	SANITY(zhdr.z_magic == Z_MAGIC);
+	SANITY(zhdr.z_version == Z_VERSION);
+	SANITY(zhdr.z_path_entsz == sizeof(ZF_Phdr));
 
 	uint32_t ptable_size;
 	ptable_size = sizeof(ZF_Phdr)*zhdr.z_path_num;
 	ptable = (ZF_Phdr*) mf_malloc(mf, ptable_size);
 	zarfile_hdl->read(&err, ptable, ptable_size, zhdr.z_path_off);
-	if (err != XFS_NO_ERROR) { goto fail; }
+	SANITY(err==XFS_NO_ERROR);
 
 	strtable = (char*) mf_malloc(mf, zhdr.z_strtab_len);
 	zarfile_hdl->read(&err, strtable, zhdr.z_strtab_len, zhdr.z_strtab_off);
-	if (err != XFS_NO_ERROR) { goto fail; }
-	if (strtable[zhdr.z_strtab_len-1]!='\0') { goto fail; }
+	SANITY(err==XFS_NO_ERROR);
+	SANITY(strtable[zhdr.z_strtab_len-1]=='\0');
 
 	// Read in an in-memory copy of all the chdrs. We update it when we
 	// give away chunks via fast_mmap, so we need to make sure all
@@ -209,7 +211,7 @@ ZarfileVFS::ZarfileVFS(MallocFactory *mf, SyncFactory* sf, XaxVFSHandleIfc *zarf
 	chdr_mutex = sf->new_mutex(false);
 	err = XFS_DIDNT_SET_ERROR;
 	zarfile_hdl->read(&err, this->chdr, chdr_len, zhdr.z_chunktab_off);
-	if (err != XFS_NO_ERROR) { goto fail; }
+	SANITY(err==XFS_NO_ERROR);
 
 	return;
 

@@ -16,11 +16,11 @@
 /*                                                                           */
 #pragma once
 
+#include "pal_abi/pal_types.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include "pal_abi/pal_types.h"
 
 // formatting
 

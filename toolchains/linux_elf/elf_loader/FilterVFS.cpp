@@ -47,6 +47,11 @@ void* FilterVFSHandle::fast_mmap(size_t len, uint64_t offset)
 	return NULL;
 }
 
+void FilterVFSHandle::trace_mmap(size_t len, uint64_t offset, bool fast)
+{
+	base_handle->trace_mmap(len, offset, fast);
+}
+
 uint32_t FilterVFSHandle::get_dir_len(XfsErr *err)
 {
 	return base_handle->get_dir_len(err);

@@ -33,6 +33,7 @@ public:
 	uint32_t allocate(ChunkEntry *chunk_entry);
 
 	virtual uint32_t get_size();
+	virtual const char* get_type();
 	virtual void emit(FILE *fp);
 
 	uint32_t get_count();

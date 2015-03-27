@@ -113,7 +113,9 @@ public:
 
 	int allocate_zid() { return next_zid++; }
 	void request_coredump();
+	void request_coredump_immediate();
 	CallCounts* get_call_counts() { return &call_counts; }
+	bool avx_available() { return _avx_available; }
 
 #if DBG_SEND_FAILURE
 	FILE *dbg_send_log_fp;
@@ -126,6 +128,7 @@ private:
 	SyncFactory *sf;
 	MmapOverride *mmapOverride;
 	bool wait_for_core;
+	bool _avx_available;
 
 	SyncFactoryMutex *mutex;
 	ZoogVCPU *root_vcpu;
@@ -134,6 +137,7 @@ private:
 	ZPubKey *pub_key;
 	uint32_t entry_point_guest;
 	bool coredump_request_flag;
+	bool coredump_request_immediate;
 
 	SyncFactoryMutex *memory_map_mutex;
 		// protects guest_memory_allocator.
@@ -170,5 +174,6 @@ private:
 	void _map_physical_memory();
 	void _pause_all();
 	void _resume_all();
+	void _test_cpu_flags();
 };
 

@@ -48,7 +48,7 @@ void RequestBuilder::_build_request(DataRange missing_set)
 		request_hash_ancestors(blk);
 		if (_available() < 0)
 		{
-			// drat -- we went over-budget on hash requests alone.
+			// crud -- we went over-budget on hash requests alone.
 			// Skip these, and the data they'd ride in on.
 			clear_tentative_locations(ABORT);
 			break;
@@ -172,11 +172,12 @@ int RequestBuilder::_available()
 	return ((int) mtu) - consumed;
 }
 
-OutboundRequest *RequestBuilder::as_outbound_request()
+OutboundRequest *RequestBuilder::as_outbound_request(CompressionContext compression_context)
 {
 	ZLC_CHATTY(zcf->ze, "  requesting data at %d\n",, request_range.start());
 	OutboundRequest *obr = new OutboundRequest(
 		zcf->mf,
+		compression_context,
 		&zcf->file_hash,
 		url_hint,
 		committed_tree_locations.size(),

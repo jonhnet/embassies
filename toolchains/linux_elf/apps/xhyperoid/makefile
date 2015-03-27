@@ -3,6 +3,8 @@
 
 ZOOG_ROOT=../../../..
 
+include $(ZOOG_ROOT)/toolchains/linux_elf/make.modules
+
 TARGETS=\
 	zhyperoid-pie \
 
@@ -70,7 +72,6 @@ pre-all: build/patch-stamp
 ########## Include
 
 include $(ZOOG_ROOT)/toolchains/linux_elf/make.in
-include $(ZOOG_ROOT)/toolchains/linux_elf/make.modules
 
 ########## Rules
 

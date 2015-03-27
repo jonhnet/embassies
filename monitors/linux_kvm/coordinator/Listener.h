@@ -53,26 +53,26 @@ private:
 
 	MonitorCrypto crypto;
 
-	App *msg_to_app(Message *msg);
+	App *msg_to_app(Message *msg, CoordinatorOpcode opcode);
 	void dispatch(Message *cm);
 	void connect(Message *cm, CMConnect *conn);
 	void launch_application(CMLaunchApplication *la);
-	void free_long_message(Message *msg, CMFreeLongMessage * hdr);
+	void free_long_message(App* app, CMFreeLongMessage * hdr);
 	void deliver_packet(Message *msg);
-	void deliver_packet_long(Message *msg, CMDeliverPacketLong* dpl);
+	void deliver_packet_long(CMDeliverPacketLong* dpl);
 	BlitterManager* blitterMgr() { return blitter_mgr; }
-	void sublet_viewport(Message *msg, CMSubletViewport* hdr);
-	void repossess_viewport(Message *msg, CMRepossessViewport* hdr);
-	void get_deed_key(Message *msg, CMGetDeedKey* hdr);
-	void accept_viewport(Message *msg, CMAcceptViewport* hdr);
-	void transfer_viewport(Message *msg, CMTransferViewport* hdr);
-	void verify_label(Message *msg, CMVerifyLabel* hdr);
-	void map_canvas(Message *msg, CMMapCanvas * hdr);
-	void unmap_canvas(Message *msg, CMUnmapCanvas * hdr);
+	void sublet_viewport(App* app, CMSubletViewport* hdr);
+	void repossess_viewport(App* app, CMRepossessViewport* hdr);
+	void get_deed_key(App* app, CMGetDeedKey* hdr);
+	void accept_viewport(App* app, CMAcceptViewport* hdr);
+	void transfer_viewport(App* app, CMTransferViewport* hdr);
+	void verify_label(App* app, CMVerifyLabel* hdr);
+	void map_canvas(App* app, CMMapCanvas * hdr);
+	void unmap_canvas(App* app, CMUnmapCanvas * hdr);
 	void update_canvas(CMUpdateCanvas *hdr);
-	void extn_debug_create_toplevel_window(Message *msg, CMExtnDebugCreateToplevelWindow * hdr);
-	void get_monitor_key_pair(Message *msg, CMGetMonitorKeyPair* hdr);
-	void alloc_long_message(Message* msg, CMAllocLongMessage* hdr);
+	void extn_debug_create_toplevel_window(App* app, CMExtnDebugCreateToplevelWindow * hdr);
+	void get_monitor_key_pair(App* app, CMGetMonitorKeyPair* hdr);
+	void alloc_long_message(App* app, CMAllocLongMessage* hdr);
 
 public:
 	Listener(MallocFactory *mf);

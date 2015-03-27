@@ -130,6 +130,7 @@ void xpe_init(XaxPosixEmulation *xpe, ZoogDispatchTable_v1 *zdt, uint32_t stack_
 
 	xpe->strace_flag = scf_lookup_env_bool(scf, "ZOOG_STRACE");
 	xpe->mmap_flag = scf_lookup_env_bool(scf, "ZOOG_MMAP");
+	xpe->trace_flag = scf_lookup_env_bool(scf, "ZOOG_TRACE");
 
 	install_default_filesystems(xpe, scf);
 
@@ -172,7 +173,7 @@ void install_default_filesystems(XaxPosixEmulation *xpe, StartupContextFactory *
 //	xzftpfs_init(xpe, "/");
 //	zlcfs_init(xpe, "/");
 	const char *zarfile_path = scf_lookup_env(scf, "ZARFILE_PATH");
-	xpe->zlcvfs_wrapper = new ZLCVFS_Wrapper(xpe, "/", zarfile_path);
+	xpe->zlcvfs_wrapper = new ZLCVFS_Wrapper(xpe, "/", zarfile_path, xpe->trace_flag);
 
 	xax_create_ramfs(xpe, "/tmp");
 	xax_create_ramfs(xpe, "/home/jonh/.gnome2");
@@ -201,6 +202,8 @@ void install_default_filesystems(XaxPosixEmulation *xpe, StartupContextFactory *
 	xoverlayfs_init(xpe, ZOOG_ROOT "/pseudofiles/etc/hosts", "/etc/hosts");
 	xoverlayfs_init(xpe, ZOOG_ROOT "/pseudofiles/etc/cups/client.conf", "/etc/cups/client.conf");
 	xoverlayfs_init(xpe, ZOOG_ROOT "/toolchains/linux_elf/lib_links", "/home/webguest/.gtk-2.0/printbackends");
+	xoverlayfs_init(xpe, ZOOG_ROOT "/pseudofiles/home/webguest/.config/inkscape/keys/default.xml", "/home/webguest/.config/inkscape/keys/default.xml");
+	xoverlayfs_init(xpe, ZOOG_ROOT "/pseudofiles/home/webguest/files", "/home/webguest/files");
 
 	// Overlay the icon-theme.cache with a smaller one.
 	xoverlayfs_init(xpe, ZOOG_ROOT "/toolchains/linux_elf/apps/midori/icon-prune/build/overlay/usr/share/icons/gnome", "/usr/share/icons/gnome");
@@ -646,11 +649,22 @@ void *xi_mmap64(XaxPosixEmulation *xpe, void *addr, size_t len, int prot, int fl
 			errorcode = EINVAL;	// tried to mmap a stream-type fd
 			goto explode;
 		}
-		uint32_t actual = min(len, hdl->get_file_len()-offset_in_bytes);
+		// file_avail_len may be shorter than request, if we're going
+		// to memcpy in bytes from the file and zero the rest.
+		uint32_t file_avail_len = min(len, hdl->get_file_len()-offset_in_bytes);
+		// fast_mmap_len may be longer than request, as it gets rounded
+		// up to a page. (Apallingly, the ld-linux loader will ask for
+		// a non-round length, then *assume* it gets the whole page.
+		// Why not just specify that in the mmap() call!? Aieee.)
+		// TODO I wonder if we should go ahead and enforce page rounding
+		// even on fd==-1 requests, in case some stupid library is as
+		// insane as the loader.
+#define PAGE_SIZE	(1<<12)
+		uint32_t mmap_len = ((len-1)&(~(PAGE_SIZE-1)))+PAGE_SIZE;
 
 		if (addr==NULL)
 		{
-			region = hdl->fast_mmap(actual, offset_in_bytes);
+			region = hdl->fast_mmap(mmap_len, offset_in_bytes);
 			dbg_disposition = "fast";
 #if 0
 			// debugging code, used to see when fast_mmap was returning
@@ -665,6 +679,7 @@ void *xi_mmap64(XaxPosixEmulation *xpe, void *addr, size_t len, int prot, int fl
 			}
 #endif
 		}
+
 		if (region!=NULL)
 		{
 			// fast_mmap worked
@@ -676,13 +691,13 @@ void *xi_mmap64(XaxPosixEmulation *xpe, void *addr, size_t len, int prot, int fl
 			if (addr==NULL)
 			{
 				region = (xpe->zmf.guest_mmap_ifc->mmap_f)(
-					xpe->zmf.guest_mmap_ifc, len);
+					xpe->zmf.guest_mmap_ifc, mmap_len);
 			}
 			else
 			{
 				region = addr;
 			}
-			hdl->read(&err, region, actual, offset_in_bytes);
+			hdl->read(&err, region, file_avail_len, offset_in_bytes);
 			if (dbg_disposition==NULL)
 			{
 				dbg_disposition = "memcpy_read";
@@ -690,14 +705,26 @@ void *xi_mmap64(XaxPosixEmulation *xpe, void *addr, size_t len, int prot, int fl
 
 			if (xpe->mmap_flag)
 			{
+				// hash the mapped region -- useful for debugging zarfile
+				// construction & client code.
 				char buf[1024];
-				uint32_t hashval = false ? hash_buf(region, actual) : -1;
+				uint32_t hashval = false ? hash_buf(region, file_avail_len) : -1;
 				cheesy_snprintf(buf, sizeof(buf),
 					"H hash of memcpy mmap at %08x length %08x == %08x\n",
-					region, actual, hashval);
+					region, file_avail_len, hashval);
 				debug_logfile_append(xpe->zdt, "mmap", buf);
 			}
 		}
+
+		// we mark the mmap as "fast" in the trace if it *could* have
+		// been served by a fast request (not whether it actually was),
+		// since the trace is captured before a (fast-enabled) zarfile
+		// is available.
+		// We trace the mmap after the read so that the absorption logic
+		// won't also insert precious regions for the whole .text segment.
+		// (In a real fast run, the read would not actually occur, so
+		// zarfile space would be wasted.)
+		hdl->trace_mmap(mmap_len, offset_in_bytes, addr==NULL);
 
 		if (err!=XFS_NO_ERROR)
 		{
@@ -985,6 +1012,8 @@ int xi_select(XaxPosixEmulation *xpe, int nfds, fd_set *readfds, fd_set *writefd
 	int ret = -1;
 	Selectinator sel;
 	xi_init_selectinator(&xpe->zmf.cheesy_arena, &sel, 3*nfds+1);
+	TimeoutManager timeout_manager;
+	bool timeout_manager_allocated = false;
 
 	int rc;
 	int fdi;
@@ -998,8 +1027,8 @@ int xi_select(XaxPosixEmulation *xpe, int nfds, fd_set *readfds, fd_set *writefd
 		if (rc!=0) { goto fail; }
 	}
 
-	TimeoutManager timeout_manager;
 	init_timeout_manager_tv(xpe, &timeout_manager, timeout);
+	timeout_manager_allocated = true;
 	timeout_manager_apply(&timeout_manager, &sel);
 	lite_assert(sel.producer_count < sel.max_producers);
 
@@ -1055,9 +1084,12 @@ int xi_select(XaxPosixEmulation *xpe, int nfds, fd_set *readfds, fd_set *writefd
 #endif // DEBUG_SELECT
 	}
 
-	free_timeout_manager(&timeout_manager);
 fail:
 	xi_free_selectinator(xpe, &sel);
+	if (timeout_manager_allocated)
+	{
+		free_timeout_manager(&timeout_manager);
+	}
 	return ret;
 }
 
@@ -1584,10 +1616,10 @@ static uint32_t _get_gs(void)
 uint32_t xi_set_thread_area(XaxPosixEmulation *xpe, struct user_desc *user_desc)
 {
 	uint32_t entry_number = (_get_gs_descriptor_idx()) >> 3;
+            // the caller has a libc without hack_patch_init_tls applied.
+            // That won't run on CEIs on other hosts (e.g. Windows),
+            // so we fail it early here, too, to make the error obvious.
 	lite_assert(user_desc->entry_number != (uint32_t) -1);
-		// the caller has a libc without hack_patch_init_tls applied.
-		// That won't run on CEIs on other hosts (e.g. Windows),
-		// so we fail it early here, too, to make the error obvious.
 
 	lite_assert(user_desc->entry_number == (uint32_t) -2
 		|| user_desc->entry_number==entry_number);
@@ -2753,6 +2785,15 @@ uint32_t xpe_dispatch(XaxPosixEmulation *xpe, UserRegs *ur)
 		break;
 	case __NR_xe_mark_perf_point:
 		xi_xe_mark_perf_point(xpe, (const char *) ARG1);
+		rc = 0;
+		break;
+	case __NR_setresuid32:
+		rc = 0;
+		break;
+	case __NR_setresgid32:
+		rc = 0;
+		break;
+	case __NR_fadvise64_64:
 		rc = 0;
 		break;
 	default:

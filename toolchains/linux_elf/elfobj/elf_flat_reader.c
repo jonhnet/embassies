@@ -58,20 +58,28 @@ void elf_flat_reader_init(ElfFlatReader *efr, uint8_t *bytes, uint32_t size, boo
 void efr_read_file(ElfFlatReader *efr, const char *filename)
 {
 	int rc;
-	FILE *fp = fopen(filename, "r");
-	lite_assert(fp!=NULL);	// file not found
+	uint32_t image_size;
+	void *image;
 
-	struct stat statbuf;
-	rc = fstat(fileno(fp), &statbuf);
-	assert(rc==0);
-	uint32_t image_size = statbuf.st_size;
-	void *image = malloc(image_size);
-	if (image_size > 0)
-	{
-		rc = fread(image, image_size, 1, fp);
-		assert(rc==1);
+	FILE *fp = fopen(filename, "r");
+	if (fp==NULL) {
+		image = malloc(1);
+		image_size = 0;
 	}
-	fclose(fp);
+	else
+	{
+		struct stat statbuf;
+		rc = fstat(fileno(fp), &statbuf);
+		assert(rc==0);
+		image_size = statbuf.st_size;
+		image = malloc(image_size);
+		if (image_size > 0)
+		{
+			rc = fread(image, image_size, 1, fp);
+			assert(rc==1);
+		}
+		fclose(fp);
+	}
 
 	elf_flat_reader_init(efr, image, image_size, true);
 }

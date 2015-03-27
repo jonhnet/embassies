@@ -38,6 +38,9 @@ typedef struct {
 	uint32_t z_chunktab_off;		// offset to ZF_Chdr *. 0 => ENOENT
 	uint32_t z_chunktab_count;		// length of ZF_Chdr array in entries (not bytes)
 	uint32_t z_chunktab_entsz;		// sizeof(ZF_Chdr)
+	uint32_t z_lg_block_size;
+		// informational: indicates how file was aligned for commonality
+		// exploitation during transmission. Has no effect on file semantics.
 } ZF_Zhdr;
 
 typedef struct {

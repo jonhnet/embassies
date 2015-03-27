@@ -181,11 +181,13 @@ BlitterViewport* BlitterManager::accept_viewport(Deed deed, uint32_t process_id)
 		result = viewport;
 	}
 
+#if PRINTF_DEBUG
 	{
 		char buf[200];
 		snprintf(buf, sizeof(buf), "%016llx deed accepted\n", deed);
 		dbg_deeds_log.append(buf);
 	}
+#endif // PRINTF_DEBUG
 	mutex->unlock();
 
 	return result;
@@ -194,11 +196,13 @@ BlitterViewport* BlitterManager::accept_viewport(Deed deed, uint32_t process_id)
 void BlitterManager::add_canvas(BlitterCanvas *canvas)
 {
 	mutex->lock();
+#if PRINTF_DEBUG
 	{
 		char buf[200];
 		snprintf(buf, sizeof(buf), "add_canvas(%p [%d])\n", canvas, canvas->get_canvas_id());
 		dbg_canvases_log.append(buf);
 	}
+#endif // PRINTF_DEBUG
 	hash_table_insert(&canvases, canvas);
 	mutex->unlock();
 }
@@ -206,11 +210,13 @@ void BlitterManager::add_canvas(BlitterCanvas *canvas)
 void BlitterManager::remove_canvas(BlitterCanvas *canvas)
 {
 	mutex->lock();
+#if PRINTF_DEBUG
 	{
 		char buf[200];
 		snprintf(buf, sizeof(buf), "remove_canvas(%p [%d])\n", canvas, canvas->get_canvas_id());
 		dbg_canvases_log.append(buf);
 	}
+#endif // PRINTF_DEBUG
 	hash_table_remove(&canvases, canvas);
 	mutex->unlock();
 }
@@ -228,7 +234,7 @@ BlitterCanvas *BlitterManager::get_canvas(ZCanvasID canvas_id)
 ViewportID BlitterManager::new_toplevel_viewport(uint32_t process_id)
 {
 	mutex->lock();
-	ZRectangle default_toplevel_rect = NewZRectangle(50, 50, 700, 700);
+	ZRectangle default_toplevel_rect = NewZRectangle(0, 0, 1024, 710);
 	BlitterViewport *bv = new BlitterViewport(
 		this, process_id, NULL, &default_toplevel_rect);
 	bv->accept_viewport(process_id);
@@ -251,11 +257,13 @@ void BlitterManager::manufacture_deed(BlitterViewport *viewport, Deed *out_deed,
 	mutex->lock();
 	random_supply->get_random_bytes((uint8_t*) out_deed, sizeof(*out_deed));
 
+#if PRINTF_DEBUG
 	{
 		char buf[200];
 		snprintf(buf, sizeof(buf), "%016llx via supply %p\n", *out_deed, random_supply);
 		dbg_deeds_log.append(buf);
 	}
+#endif // PRINTF_DEBUG
 
 	random_supply->get_random_bytes((uint8_t*) out_deed_key, sizeof(*out_deed_key));
 	DeedEntry *entry = new DeedEntry(*out_deed, viewport);

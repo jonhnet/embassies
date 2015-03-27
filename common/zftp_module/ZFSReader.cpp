@@ -19,7 +19,7 @@ ZFSReader::~ZFSReader()
 {
 }
 
-void ZFSReader::copy(FILE *ofp, uint32_t p_offset, uint32_t len)
+void ZFSReader::copy(WriterIfc* writer, uint32_t p_offset, uint32_t len)
 {
 	uint8_t buf[65536];
 
@@ -41,8 +41,7 @@ void ZFSReader::copy(FILE *ofp, uint32_t p_offset, uint32_t len)
 		}
 		uint32_t got = get_data(offset, buf, grab);
 		assert(got==grab);
-		int spewed = fwrite(buf, grab, 1, ofp);
-		assert(spewed == 1);
+		writer->write(buf, grab);
 
 		remaining -= grab;
 		offset += grab;

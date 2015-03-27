@@ -8,7 +8,7 @@
 #include "perf_measure.h"
 #include "ZLCEmitXdt.h"
 
-ZLCVFS_Wrapper::ZLCVFS_Wrapper(XaxPosixEmulation *xpe, const char *path, const char *zarfile_path_str)
+ZLCVFS_Wrapper::ZLCVFS_Wrapper(XaxPosixEmulation *xpe, const char *path, const char *zarfile_path_str, bool trace)
 {
 	zarfile_vfs = NULL;
 	union_vfs = NULL;
@@ -17,7 +17,13 @@ ZLCVFS_Wrapper::ZLCVFS_Wrapper(XaxPosixEmulation *xpe, const char *path, const c
 
 	ZLCEmit* ze = new ZLCEmitXdt(xpe->zdt, terse);
 
-	ZLCVFS *zlc_vfs = new ZLCVFS(xpe, ze);
+	traceCollector = NULL;
+	if (trace)
+	{
+		traceCollector = new TraceCollector(sf, xpe->zdt);
+	}
+
+	ZLCVFS *zlc_vfs = new ZLCVFS(xpe, ze, traceCollector);
 	XfsErr err = (XfsErr) ENOENT;
 	XaxVFSHandleIfc *zarfile_hdl = NULL;
 	PerfMeasure *perf_measure = xpe->perf_measure;
@@ -72,6 +78,10 @@ void ZLCVFS_Wrapper::liberate()
 		lite_assert(ifc == (XaxVFSIfc *) zarfile_vfs);
 		delete zarfile_vfs;
 		union_vfs = NULL;
+	}
+	if (traceCollector != NULL)
+	{
+		traceCollector->terminate_trace();
 	}
 }
 

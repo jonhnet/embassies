@@ -21,10 +21,10 @@
 
 class GenodeCanvasAcceptor : public GCanvasAcceptorIfc {
 private:
-	ZoogMonitor::Session::AcceptCanvasReply *acr;
+	ZoogMonitor::Session::MapCanvasReply *mcr;
 
 public:
-	GenodeCanvasAcceptor(ZoogMonitor::Session::AcceptCanvasReply *acr);
+	GenodeCanvasAcceptor(ZoogMonitor::Session::MapCanvasReply *mcr);
 	
 	virtual void set_fb_dataspace(Genode::Dataspace_capability dcap);
 	virtual ZCanvas *get_zoog_canvas();

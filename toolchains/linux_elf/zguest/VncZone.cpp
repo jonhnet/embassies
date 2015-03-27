@@ -15,6 +15,8 @@ VncZone::VncZone(XvncStartDetector *xvnc_start_detector)
 	add_arg("-nolock");
 	add_arg("-depth");
 	add_arg("24");
+	add_arg("-geometry");
+	add_arg("1366x710");
 }
 
 void VncZone::verify_label()

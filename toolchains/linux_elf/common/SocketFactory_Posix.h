@@ -19,12 +19,17 @@
 #include "xax_network_defs.h"
 #include "SocketFactory.h"
 
+namespace SocketFactoryType
+{
+	enum Type { UDP, TCP };
+}
+
 class PosixSocket : public AbstractSocket {
 public:
 	~PosixSocket();
 
 	ZeroCopyBuf *zc_allocate(uint32_t payload_len);
-	bool zc_send(UDPEndpoint *remote, ZeroCopyBuf *zcb);
+	bool zc_send(UDPEndpoint *remote, ZeroCopyBuf *zcb, uint32_t final_len);
 	void zc_release(ZeroCopyBuf *zcb);
 
 	ZeroCopyBuf *allocate_packet(UDPEndpoint *remote, uint32_t payload_len);
@@ -37,17 +42,26 @@ public:
 
 private:
 	friend class SocketFactory_Posix;
-	PosixSocket(UDPEndpoint *local, MallocFactory *mf, bool want_timeouts);
+	PosixSocket(UDPEndpoint *local, UDPEndpoint* remote, MallocFactory *mf, bool want_timeouts, SocketFactoryType::Type type);
+
+	void tcp_connect(UDPEndpoint* remote);
+	void tcp_accept();
+	void tcp_close_client();
 
 	bool _want_timeouts;
+	SocketFactoryType::Type type;
+	bool outgoing;	// flag needed to decide how to accept/connect TCP sockets
+	int tcp_listen_fd;
+	UDPEndpoint tcp_remote;
 	int sock_fd;
 	MallocFactory *mf;
 };
 
 class SocketFactory_Posix : public SocketFactory {
 public:
-	SocketFactory_Posix(MallocFactory *mf);
-	AbstractSocket *new_socket(UDPEndpoint *local, bool want_timeouts);
+	SocketFactoryType::Type type;
+	SocketFactory_Posix(MallocFactory *mf, SocketFactoryType::Type type);
+	AbstractSocket *new_socket(UDPEndpoint* local, UDPEndpoint* remote, bool want_timeouts);
 		// local == NULL => listen on any port on the local interface
 private:
 	MallocFactory *mf;

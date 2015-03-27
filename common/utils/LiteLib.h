@@ -35,6 +35,7 @@ char *lite_index(const char *s, int c);
 char *lite_rindex(const char *s, int c);
 bool lite_starts_with(const char *prefix, const char *str);
 bool lite_ends_with(const char *suffix, const char *str);
+int lite_split(const char* buf, char delim, const char** out_fields, int max_fields);
 
 void lite_memcpy(void *dst, const void *src, size_t n);
 void lite_memset(void *start, char val, int size);

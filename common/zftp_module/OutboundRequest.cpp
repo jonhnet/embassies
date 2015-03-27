@@ -1,10 +1,12 @@
 #include "xax_network_utils.h"
 #include "OutboundRequest.h"
+#include "ZFTPRequestPacketInit.h"
 
 OutboundRequest::OutboundRequest(
-	MallocFactory *mf,
-	const hash_t *file_hash,
-	const char *url_hint,
+	MallocFactory* mf,
+	CompressionContext compression_context,
+	const hash_t* file_hash,
+	const char* url_hint,
 	uint32_t num_tree_locations,
 	uint32_t padding_request,
 	DataRange data_range)
@@ -15,13 +17,15 @@ OutboundRequest::OutboundRequest(
 			+sizeof(uint32_t)*num_tree_locations
 			+url_hint_len;
 	zrp = (ZFTPRequestPacket *) mf_malloc(mf, len);
-	zrp->hash_len = z_htong(sizeof(hash_t), sizeof(zrp->hash_len));
-	zrp->url_hint_len = z_htong(url_hint_len, sizeof(zrp->url_hint_len));
-	zrp->file_hash = *file_hash;
-	zrp->num_tree_locations = z_htong(num_tree_locations, sizeof(zrp->num_tree_locations));
-	zrp->padding_request = z_htong(padding_request, sizeof(zrp->padding_request));
-	zrp->data_start = z_htong(data_range.start(), sizeof(zrp->data_start));
-	zrp->data_end = z_htong(data_range.end(), sizeof(zrp->data_end));
+	ZFTPRequestPacketInit(zrp,
+		url_hint_len,
+		*file_hash,
+		num_tree_locations,
+		padding_request,
+		compression_context,
+		data_range.start(),
+		data_range.end()
+		);
 
 	locations = (uint32_t*) &zrp[1];
 

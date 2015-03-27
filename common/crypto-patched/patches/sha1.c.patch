@@ -1,15 +1,28 @@
---- orig/sha2-orig/sphlib-3.0/c/sha1.c	2011-07-20 18:11:04.000000000 -0700
-+++ ../crypto/sha1.c	2012-09-15 22:16:57.000000000 -0700
-@@ -33,7 +33,7 @@
- #include <stddef.h>
- #include <string.h>
+--- orig/sha2-orig/sphlib-3.0/c/sha1.c	2011-07-20 21:11:04.000000000 -0700
++++ patched/sha1.c	2013-01-08 09:35:16.593027362 -0800
+@@ -30,10 +30,8 @@
+  * @author   Thomas Pornin <thomas.pornin@cryptolog.com>
+  */
  
+-#include <stddef.h>
+-#include <string.h>
+-
 -#include "sph_sha1.h"
++#include "LiteLib.h"
 +#include "sha1.h"
  
  #define F(B, C, D)     ((((C) ^ (D)) & (B)) ^ (D))
  #define G(B, C, D)     ((B) ^ (C) ^ (D))
-@@ -350,7 +350,7 @@
+@@ -339,7 +337,7 @@
+ 	sph_sha1_context *sc;
+ 
+ 	sc = cc;
+-	memcpy(sc->val, IV, sizeof IV);
++	lite_memcpy(sc->val, IV, sizeof IV);
+ #if SPH_64
+ 	sc->count = 0;
+ #else
+@@ -350,7 +348,7 @@
  #define RFUN   sha1_round
  #define HASH   sha1
  #define BE32   1

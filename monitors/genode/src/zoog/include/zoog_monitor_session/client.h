@@ -59,8 +59,12 @@ namespace ZoogMonitor {
 			call<Rpc_core_dump_invoke_sigh>(cap);
 		}
 		
-		AcceptCanvasReply accept_canvas(ViewportID viewport_id) {
-			return call<Rpc_accept_canvas>(viewport_id);
+		void start_gate_sigh(Signal_context_capability cap) {
+			call<Rpc_start_gate_sigh>(cap);
+		}
+		
+		MapCanvasReply map_canvas(ViewportID viewport_id) {
+			return call<Rpc_map_canvas>(viewport_id);
 		}
 
 		void dispatch_message(uint32_t offset) {

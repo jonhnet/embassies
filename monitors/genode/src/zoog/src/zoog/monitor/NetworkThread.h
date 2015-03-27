@@ -17,7 +17,6 @@
 #pragma once
 
 #include <base/thread.h>
-#include <base/semaphore.h>
 #include <base/signal.h>
 #include <base/lock.h>
 #include <nic_session/connection.h>
@@ -28,44 +27,25 @@
 #include <timer_session/connection.h>
 
 #include "AllocatedBuffer.h"
-#include "linked_list.h"
 #include "DebugFlags.h"
+#include "PacketQueue.h"
+#include "hash_table.h"
+#include "NetworkTerminus.h"
 
 namespace ZoogMonitor {
-	struct Packet
-	{
-		Packet_descriptor descriptor;
-		void *payload;
-		uint32_t size;
-	};
-
-	class Packet_queue
-	{
-	private:
-		Lock lock;
-		LinkedList queue;	/* of Packet */
-		Semaphore semaphore;
-	public:
-		Packet_queue();
-		void insert(Packet *packet);
-		Packet *remove();
-	};
-
 	class NetworkThread : public Genode::Thread<8192>
 	{
 	private:
 		Nic::Connection *_nic_session;
+		XIPifconfig *_prototype_ifconfig;
 		Packet_descriptor _rx_packet; /* actual processed packet */
 		Net::Ethernet_frame::Mac_address gateway_mac_address;
-		XIPifconfig *_ifconfig;	// just one for now
-		Packet_queue packet_queue;
 		Lock lock;
-		Signal_transmitter *_network_receive_signal_transmitter;
-		Signal_transmitter *_core_dump_invoke_signal_transmitter;
 		DebugFlags *_dbg_flags;
 		Timer::Connection *timer;
 		int _dbg_total;
 		int _dbg_next_mark;
+		HashTable terminii_table;
 
 		uint32_t account_received_packets_accepted;
 		uint32_t account_received_packets_acknowledged;
@@ -95,18 +75,19 @@ namespace ZoogMonitor {
 			Net::Ipv4_packet::Ipv4_address from_ip,
 			Net::Ipv4_packet::Ipv4_address to_ip);
 
+		NetworkTerminus* findTerminus(uint32_t identifier);
+		static void list_one(void* user, void* a);
+		void listTerminii();
+
 	public:
 		NetworkThread(
 			Nic::Connection *_nic_session,
-			XIPifconfig *ifconfig,
-			Signal_transmitter *network_receive_signal_transmitter,
-			Signal_transmitter *core_dump_invoke_signal_transmitter,
+			XIPifconfig *prototype_ifconfig,
 			DebugFlags *dbg_flags,
 			Timer::Connection *timer);
 
+		void register_terminus(NetworkTerminus* terminus);
 		void send_packet(AllocatedBuffer *allocated_buffer);
-
-		Packet *receive();
 		void release(Packet *packet);
 	};
 

@@ -18,12 +18,14 @@
 #include "ZAuthoritativeOrigin.h"
 #include "SyncFactory.h"
 
-ZCache::ZCache(ZLCArgs *zargs, MallocFactory *mf, SyncFactory *sf, ZLCEmit *ze, SendBufferFactory *sbf)
+ZCache::ZCache(ZLCArgs *zargs, MallocFactory *mf, SyncFactory *sf, ZLCEmit *ze, SendBufferFactory *sbf, ZCompressionIfc* zcompression)
 {
 	this->mf = mf;
 	this->sf = sf;
+	this->zcompression = zcompression;
 	this->ze = ze;
 	this->sbf = sbf;
+	this->pmi = pmi;
 
 	uint8_t *zeros = (uint8_t*) alloca(ZFTP_BLOCK_SIZE);
 	memset(zeros, 0, ZFTP_BLOCK_SIZE);
@@ -297,4 +299,10 @@ ZBlockCacheRecord *ZCache::retrieve_block(const hash_t *hash)
 #endif // ZLC_USE_PERSISTENT_STORAGE
 	}
 	return NULL;
+}
+
+void ZCache::configure_perf_measure_ifc(PerfMeasureIfc* pmi)
+{
+	lite_assert(this->pmi == NULL);
+	this->pmi = pmi;
 }

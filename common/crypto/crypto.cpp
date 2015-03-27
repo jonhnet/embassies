@@ -1,12 +1,25 @@
 #include "crypto.h"
+#include "sha-openssl.h"
 
 #ifdef USE_SHA1
+
+#if 0
 void zhash(const uint8_t* input, uint32_t size, hash_t* hash) {
 	sph_sha1_context sha_ctx; 
 	sph_sha1_init(&sha_ctx); 
 	sph_sha1(&sha_ctx, input, size); 
 	sph_sha1_close(&sha_ctx, (uint8_t*)hash); 
 }
+#else
+// Use the optimized OpenSSL version instead
+void zhash(const uint8_t* input, uint32_t size, hash_t* hash) {
+	SHA_CTX sha_ctx;
+	sha1_init(&sha_ctx); 
+	sha1_update(&sha_ctx, input, size); 
+	sha1_final(&sha_ctx, (uint8_t*)hash); 
+}
+#endif
+
 #elif USE_SHA256
 void zhash(const uint8_t* input, uint32_t size, hash_t* hash) {
 	sph_sha256_context sha_ctx; 

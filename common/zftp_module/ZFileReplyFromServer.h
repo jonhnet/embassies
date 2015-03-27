@@ -22,6 +22,7 @@
 #include "xax_network_utils.h"
 #include "ZLCEmit.h"
 #include "DataRange.h"
+#include "ZCompressionIfc.h"
 
 // This class ingests a raw reply from a ZFTP file server,
 // parses and sanity-checks it,
@@ -30,7 +31,7 @@
 class ZFileReplyFromServer
 {
 public:
-	ZFileReplyFromServer(ZeroCopyBuf *zcb, ZLCEmit *ze);
+	ZFileReplyFromServer(ZeroCopyBuf *zcb, ZLCEmit *ze, ZCompressionIfc* zcompression);
 	~ZFileReplyFromServer();
 
 	ZFTPFileMetadata *get_metadata();
@@ -57,7 +58,9 @@ public:
 	bool is_valid() { return _valid; }
 
 private:
+	ZCompressionIfc* zcompression;
 	ZeroCopyBuf *zcb;
+	ZeroCopyBuf *_uncompressed_zcb;
 
 	void assert_valid() { lite_assert(_valid); }
 

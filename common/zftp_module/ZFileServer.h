@@ -48,4 +48,5 @@ private:
 	ValidatedZCB* cached_vbuf;
 	uint32_t cached_payload_len;
 	PerfMeasureIfc* pmi;
+	static const uint32_t fast_case_cushion = 150<<10;
 };

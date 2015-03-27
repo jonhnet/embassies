@@ -23,7 +23,7 @@ class XRFileNode : public XRNode
 public:
 	XRFileNode(XRamFS *xrfs);
 	XRFileNode(MallocFactory *mf);
-		// disembodied ctor; object to be installed later. YUCK YUCK YUCK.
+		// disembodied ctor; object to be installed later. YUCK YUCK YUCK BARF.
 
 	XRNodeHandle *open_node(XfsErr *err, const char *path, int oflag, XVOpenHooks *xoh);
 	void mkdir_node(XfsErr *err, const char *new_name, mode_t mode);

@@ -16,22 +16,39 @@
 /*                                                                           */
 #pragma once
 
-#include "ZCache.h"
-#include "ZLCArgs.h"
+#include "SendBufferFactory.h"
+#include "SocketFactory_Counter.h"
+#include "SocketFactory.h"
 #include "standard_malloc_factory.h"
 #include "SyncFactory.h"
-#include "SocketFactory.h"
 #include "ThreadFactory.h"
-#include "SendBufferFactory.h"
+#include "ZCache.h"
+#include "ZLCArgs.h"
+#include "ZLookupClient.h"
 
 class ZFTPApp {
+private:
+	ZLCArgs *zlc_args;
+	SocketFactory_Counter *socket_factory_counter;
+	ZLookupClient *zlookup_client;
+	MallocFactory *mf;
+	SyncFactory *sf;
+	ThreadFactory *tf;
+	ZCompressionIfc* zcompression;
+	ZLCEmit *ze;
+	SendBufferFactory *sbf;
+
+	ZLookupClient* get_zlookup_client();
+	void fetch(const char* fetch_url);
+
 public:
-  void run(ZLCArgs *zlc_args, 
-           MallocFactory *mf, 
-           SocketFactory *socket_factory,
-           SyncFactory *sf,           
-           ThreadFactory *tf,
-           SendBufferFactory *sbf);
+	ZFTPApp(ZLCArgs *zlc_args, 
+		  MallocFactory *mf, 
+		  SocketFactory *underlying_socket_factory,
+		  SyncFactory *sf,           
+		  ThreadFactory *tf,
+		  SendBufferFactory *sbf);
+	void run();
 	void close();
 
 	ZCache *zcache;

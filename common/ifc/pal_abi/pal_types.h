@@ -29,7 +29,10 @@
 
 #include "pal_abi/pal_basic_types.h"
 
+#define SIGNED_BINARY_MAGIC 0x5a53474e	/*'ZSGN'*/
+
 typedef struct {
+	uint32_t magic;			// ==SIGNED_BINARY_MAGIC, *network order*
 	uint32_t cert_len;		// *network order*
 	uint32_t binary_len;	// *network order*
 	// followed by cert_len bytes of ZoogCert

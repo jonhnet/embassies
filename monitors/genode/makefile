@@ -8,7 +8,14 @@ include $(ZOOG_ROOT)/toolchains/linux_elf/make.in
 ABS_ZOOG_ROOT=$(abspath $(ZOOG_ROOT))
 export ABS_ZOOG_ROOT
 
-all: genode-build
+all: build/apt-prerequisites genode-build
+
+$(BUILD)/apt-prerequisites: $(BUILD)
+	dpkg -s expect > /dev/null || (echo "expect not installed" && /bin/false)
+	dpkg -s genisoimage > /dev/null || (echo "genisoimage not installed" && /bin/false)
+	dpkg -s qemu > /dev/null || (echo "qemu not installed" && /bin/false)
+	dpkg -s uml-utilities > /dev/null || (echo "uml-utilities not installed" && /bin/false)
+	touch $@
 
 genode-toolchain: /usr/local/genode-gcc/bin/genode-x86-gcc
 

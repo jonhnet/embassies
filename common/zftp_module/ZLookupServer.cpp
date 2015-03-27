@@ -10,7 +10,7 @@ ZLookupServer::ZLookupServer(ZCache *zcache, UDPEndpoint *listen_lookup, ZLCEmit
 
 	this->zcache = zcache;
 	this->ze = zcache->GetZLCEmit();
-	this->socket = sf->new_socket(listen_lookup, false);
+	this->socket = sf->new_socket(listen_lookup, NULL, false);
 
 	this->log_paths_emitter = log_paths_emitter;
 

@@ -72,6 +72,19 @@ typedef struct
 
 #pragma pack(push)
 #pragma pack(1)
+
+typedef struct s_compression_context
+{
+	uint32_t state_id;
+	uint32_t seq_id;
+} CompressionContext;
+#define ZFTP_NO_COMPRESSION		(0)
+// set state_id == ZFTP_NO_COMPRESSION for no compression.
+
+// If the client requests a (state_id,seq_id) for which the server doesn't
+// hold the corresponding compression state, then it will return something
+// with (state_id,0) -- it'll start a new compression state at state_id.
+
 typedef struct s_zftp_request_packet
 {
 	uint16_t hash_len;
@@ -82,6 +95,8 @@ typedef struct s_zftp_request_packet
 	uint32_t num_tree_locations;
 
 	uint32_t padding_request;
+
+	CompressionContext compression_context;
 
 	uint32_t data_start;
 	uint32_t data_end;
@@ -138,21 +153,31 @@ typedef struct s_zftp_data_packet
 
 	uint32_t padding_size;
 
+	CompressionContext compression_context;
+
 	uint32_t data_start;
 	uint32_t data_end;
 		// The 'data' portion of this packet represents
 		// file data from [data_start,data_end).
 		// (possibly with trailing zeros omitted).
+	uint32_t payload_size;
 
 	// This struct followed by a variable-length region containing:
 	// <merkle_records>
 	//      num_merkle_records * sizeof(ZFTPMerkleRecord) bytes of tree hashes
 	//      These should probably be presented in the same order the list
 	//      was requested by the client.
-	// <padding> as many zeros as indicated in uint32_t padding_size;
-	// <data>
-	//      raw data, no more than data_end-data_start
-	//       Any truncation implies remaining bytes are 0s.
+	// <padding_size> as many zeros as indicated in uint32_t padding_size;
+	// if (compression_context.state_id==ZFTP_NO_COMPRESSION) then
+	// 	<data>
+	//      	payload_size bytes of raw data, no more than data_end-data_start
+	//       	Any truncation implies remaining bytes are 0s.
+	// else
+	//	<payload_size> bytes of data to feed into zlib.
+	//	(decompressor must output (data_end-data_start) bytes.)
+	//  compression_context identifies a stream state;
+	//	if compression.context.seq_id>0,
+	//  that stream continues from a prior packet with same state_id.
 } ZFTPDataPacket;
 #pragma pack(pop)
 
@@ -180,11 +205,12 @@ static __inline uint32_t compute_num_blocks(uint32_t file_len)
 	return ((file_len)+ZFTP_BLOCK_SIZE-1) >> ZFTP_LG_BLOCK_SIZE;
 }
 
+// This is a 
 static __inline uint16_t
-lg2(uint32_t n)
+ceillg2(uint32_t n)
 {
 	uint16_t r;
-	for (r=-1; n>0; r++) { n=n>>1; }
+	for (r=0; n>0; r++) { n=n>>1; }
 	return r;
 }
 
@@ -193,7 +219,7 @@ compute_tree_depth(uint32_t num_blocks)
 	// NB tree_depth is address of bottom layer of tree
 {
 	if (num_blocks==0) { return 0; }
-	return lg2(num_blocks-1)+1;
+	return ceillg2(num_blocks-1);
 }
 
 #if 0	// dead code from a dumber version of the protocol

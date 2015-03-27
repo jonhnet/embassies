@@ -64,7 +64,7 @@ public:
 
 	ValidatedMerkleRecord *get_validated_merkle_record(uint32_t location);
 
-	void read(Buf* buf, uint32_t buf_offset, uint32_t offset, uint32_t size);
+	void write_blocks_to_buf(Buf* buf, uint32_t packet_data_offset, uint32_t offset, uint32_t size);
 		// asserts required blocks are present
 
 	bool is_dir();

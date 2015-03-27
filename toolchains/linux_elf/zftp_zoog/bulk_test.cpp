@@ -18,6 +18,7 @@
 #include "ZFastFetch.h"
 #include "SendBufferFactory_Xnb.h"
 #include "xax_util.h"
+#include "ZCompressionStub.h"
 
 #include "bulk_test.h"
 
@@ -70,7 +71,7 @@ void BulkTest::run(ZBCContext *context)
 	SocketFactory *socket_factory = new SocketFactory_Skinny(context->xsn);
 	SyncFactory *sf = new SyncFactory_Zutex(context->zdt);
 	SendBufferFactory_Xnb *sbf = new SendBufferFactory_Xnb(context->zdt);
-	zcache = new ZCache(&zlc_args, mf, sf, NULL, sbf);
+	zcache = new ZCache(&zlc_args, mf, sf, NULL, sbf, new ZCompressionStub());
 
 	zcache->configure(NULL, NULL);
 

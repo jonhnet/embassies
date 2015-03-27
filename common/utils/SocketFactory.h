@@ -25,7 +25,7 @@ public:
 	virtual ~AbstractSocket() {}
 
 	virtual ZeroCopyBuf *zc_allocate(uint32_t payload_len) = 0;
-	virtual bool zc_send(UDPEndpoint *remote, ZeroCopyBuf *zcb) = 0;
+	virtual bool zc_send(UDPEndpoint *remote, ZeroCopyBuf *zcb, uint32_t final_len) = 0;
 	virtual void zc_release(ZeroCopyBuf *zcb) = 0;
 
 	bool sendto(UDPEndpoint *remote, void *buf, uint32_t buf_len);
@@ -36,7 +36,7 @@ public:
 
 class SocketFactory {
 public:
-	virtual AbstractSocket *new_socket(UDPEndpoint *local, bool want_timeouts) = 0;
+	virtual AbstractSocket *new_socket(UDPEndpoint* local, UDPEndpoint* remote, bool want_timeouts) = 0;
 		// local == NULL => bind to any port on the local interface;
 		// usable only for outgoing connections.
 		// want_timeouts: cheese. if you say 'true', and your recv sits for

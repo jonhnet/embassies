@@ -26,9 +26,8 @@ void ZLookupClient::_open_socket()
 {
 	if (sock==NULL)
 	{
-		ZLC_COMPLAIN(ze, "ZLookupClient breaks open a new socket.\n");
-		sock = sockf->new_socket(
-			sockf->get_inaddr_any(origin_lookup->ipaddr.version), true);
+//		ZLC_COMPLAIN(ze, "ZLookupClient breaks open a new socket.\n");
+		sock = sockf->new_socket(NULL, origin_lookup, true);
 	}
 	lite_assert(sock!=0);
 }

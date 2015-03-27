@@ -198,7 +198,7 @@ int find_symbol(ElfState *elf, char *target_symname, int *out_sym_size)
 			{
 				//uint32_t sym_origin = get_data_origin(elf);
 				uint32_t symvalue = sym->st_value;
-				fprintf(stderr, "elfFlatten: %s == %08x sz %d\n", symname, symvalue, sym->st_size);
+//				fprintf(stderr, "elfFlatten: %s == %08x sz %d\n", symname, symvalue, sym->st_size);
 				*out_sym_size = sym->st_size;
 				return symvalue;
 			}
@@ -469,7 +469,7 @@ void flattenElfToBinary(const char *image, ElfState *es, BinaryImage *bi, bool i
 				// two masters: we want enough of the Elf file to be able to
 				// read its structure in elfLoader2, but zeroing the .bss means
 				// explicitly overwriting other parts of the Elf; we're just
-				// relying on that to be symbols and other stuff we don't need.)
+				// relying on that to be symbols and other crud we don't need.)
 				pseudo_header.sh_flags = SHF_ALLOC;		// don't ignore it
 				pseudo_header.sh_type = SHT_NULL;	// want real bits
 				pseudo_header.sh_offset = 0;		// starts at beginning of file
@@ -525,7 +525,7 @@ void rewriteManifestName(ElfState *es, BinaryImage *bi, const char *manifest_str
 	// ignores Elf header truncation.
 	Elf32_Addr image_base = bi->slurpState.min_address;
 
-	fprintf(stderr, "elfFlatten: image_base: 0x%08x\n", image_base);
+//	fprintf(stderr, "elfFlatten: image_base: 0x%08x\n", image_base);
 	
 	int symsz_eld;
 	uint32_t eld_offset = find_symbol(es, "eld", &symsz_eld) - image_base;
@@ -541,7 +541,7 @@ void rewriteManifestName(ElfState *es, BinaryImage *bi, const char *manifest_str
 		assert(0);
 	}
 	strcpy(eld->manifest_name, manifest_string);
-	fprintf(stderr, "elfFlatten: manifest_name at file offset 0x%08x\n", eld->manifest_name - bi->start);
+//	fprintf(stderr, "elfFlatten: manifest_name at file offset 0x%08x\n", eld->manifest_name - bi->start);
 }
 
 void writeBinary(BinaryImage *bi, const char *outname)

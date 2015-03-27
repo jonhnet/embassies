@@ -38,7 +38,7 @@ void ZLCTestHarness::transfer_one(int pattern_selector)
 	ZLC_CHATTY(ze, "Transferring reference file #%d, len %d\n",,
 		pattern_selector, rf->len);
 
-	ZFetch zfetch(zcache, zlookup_client);
+	ZFetch zfetch(zcache, zlookup_client, ZFetch::DEFAULT_TIMEOUT);
 
 	char url[100];
 	cheesy_snprintf(url, sizeof(url), "%s%d", REFERENCE_FILE_SCHEME, rf->pattern_selector);

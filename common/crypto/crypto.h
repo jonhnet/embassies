@@ -35,8 +35,8 @@ extern "C" {
 
 // Choose your hash function
 #define USE_SHA1 1
-//#define USE_SHA256 1
-//#define USE_SHA512 1
+#define USE_SHA256 0
+#define USE_SHA512 0
 
 // Choose your block cipher (only one choice at the moment)
 #define USE_AES
@@ -57,7 +57,7 @@ extern "C" {
 #endif // USE_AES
 
 // Size of hash output in bytes
-#ifdef USE_SHA1
+#if USE_SHA1
 #define HASH_SIZE SPH_SIZE_sha1 / 8
 #elif  USE_SHA256
 #define HASH_SIZE SPH_SIZE_sha256 / 8

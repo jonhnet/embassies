@@ -22,11 +22,13 @@ uint32_t ErrorFileResult::get_reply_size(ZFileRequest *req)
 void ErrorFileResult::fill_reply(Buf* vbuf, ZFileRequest *req)
 {
 	int str0len = lite_strlen(msg)+1;
-	ZFTPErrorPacket *zdp = (ZFTPErrorPacket *) vbuf->data();
+	ZFTPErrorPacket *zdp = (ZFTPErrorPacket *) vbuf->write_header(sizeof(ZFTPErrorPacket));
 	zdp->header.code = z_htong(code, sizeof(zdp->header.code));
 	zdp->message_len = z_htong(str0len, sizeof(zdp->message_len));
 	zdp->file_hash = zcf->file_hash;
-	lite_memcpy((char*) (&zdp[1]), msg, str0len);
+
+	char* zdp_msg = (char*) vbuf->write_header(str0len);
+	lite_memcpy(zdp_msg, msg, str0len);
 }
 
 bool ErrorFileResult::is_error()

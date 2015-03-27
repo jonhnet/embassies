@@ -270,7 +270,7 @@ ValidatedMerkleRecord *ZCachedFile::get_validated_merkle_record(
 	return vmr;
 }
 
-void ZCachedFile::read(Buf* buf, uint32_t buf_offset, uint32_t offset, uint32_t size)
+void ZCachedFile::write_blocks_to_buf(Buf* buf, uint32_t packet_data_offset, uint32_t offset, uint32_t size)
 {
 	lite_assert(offset+size <= get_filelen());
 
@@ -279,14 +279,13 @@ void ZCachedFile::read(Buf* buf, uint32_t buf_offset, uint32_t offset, uint32_t 
 	uint32_t blk = first_block;
 	uint32_t file_offset = offset;
 	uint32_t buf_off = 0;
-	buf->set_debug_offset(buf_offset);
 #define DBG_ASSERTS 1
 #if DBG_ASSERTS
 	uint32_t dbg_file_last_ended = offset;
 	//uint8_t *dbg_buf_last_ended = buf;
 #endif // DBG_ASSERTS
 
-	((ValidatedZCB*)buf)->resetDebugStats();
+	buf->resetDebugStats();
 
 	while (buf_off < size)
 	{
@@ -304,7 +303,7 @@ void ZCachedFile::read(Buf* buf, uint32_t buf_offset, uint32_t offset, uint32_t 
 		uint32_t blk_len = min(
 			blk_end_request - blk_off,			// end of user request
 			ZFTP_BLOCK_SIZE - blk_off);	// end of block
-		buf->read(block, buf_off + buf_offset, blk_off, blk_len);
+		buf->write_data(block, buf_off + packet_data_offset, blk_off, blk_len);
 		
 #if DBG_ASSERTS
 		{
@@ -326,7 +325,8 @@ void ZCachedFile::read(Buf* buf, uint32_t buf_offset, uint32_t offset, uint32_t 
 	// offset into user buffer is consistent with expectations
 	//lite_assert(dbg_buf_last_ended==buf+size);
 #endif // DBG_ASSERTS
-	// ((ValidatedZCB*)buf)->printDebugStats();
+//	fprintf(stderr, "Wrote %x bytes\n", size);
+	// buf->printDebugStats();
 	// 		Dude, that's not a safe assumption!
 }
 
@@ -342,10 +342,14 @@ void ZCachedFile::_issue_server_request(
 	else if (zcache->zfile_client!=NULL)
 	{
 		OutboundRequest *obr;
+		zcache->get_compression()->reset_client_context();	// TODO DEBUG
+		CompressionContext compression_context =
+			zcache->get_compression()->get_client_context();
 		if (this->metadata_state != v_validated)
 		{
 			obr = new OutboundRequest(
 				mf,
+				compression_context,
 				waiting_req->get_hash(),
 				waiting_req->url_hint,
 				1,
@@ -357,7 +361,7 @@ void ZCachedFile::_issue_server_request(
 		{
 			lite_assert(missing_set.size() > 0);
 			RequestBuilder builder(this, zcache->sf, missing_set, zcache->zfile_client->get_max_payload());
-			obr = builder.as_outbound_request();
+			obr = builder.as_outbound_request(compression_context);
 			requesting_data_mode = builder.requested_any_data();
 		}
 		zcache->zfile_client->issue_request(obr);
@@ -597,6 +601,15 @@ void ZCachedFile::withdraw_request(ZFileRequest *req)
 
 void ZCachedFile::_signal_waiters()
 {
+#if 0	// from the time I discovered that the warm cache case
+// was slow because it was doing 34 synchronous round-trips.
+	PerfMeasureIfc* pmi = zcache->get_perf_measure_ifc();
+	if (pmi!=NULL)
+	{
+		pmi->mark_time("_signal_waiters");
+	}
+#endif
+
 	// snarf out the waiters list...
 	LinkedList waiters;
 	lite_memcpy(&waiters, &this->waiters, sizeof(LinkedList));

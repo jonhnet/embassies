@@ -25,7 +25,9 @@ public:
 	~SkinnySocket();
 
 	ZeroCopyBuf *zc_allocate(uint32_t payload_len);
-	bool zc_send(UDPEndpoint *remote, ZeroCopyBuf *zcb);
+	bool zc_send(UDPEndpoint *remote, ZeroCopyBuf *zcb, uint32_t final_len);
+		// Does not release the zcb, so you can send it again and again
+		// if you like.
 	void zc_release(ZeroCopyBuf *zcb);
 
 	bool sendto(UDPEndpoint *remote, void *buf, uint32_t buf_len);
@@ -34,8 +36,8 @@ public:
 
 private:
 	friend class SocketFactory_Skinny;
-	SkinnySocket(XaxSkinnyNetwork *xsn, UDPEndpoint *local, bool want_timeouts);
-	bool _internal_send(UDPEndpoint *remote, ZeroCopyBuf *zcb, bool release);
+	SkinnySocket(XaxSkinnyNetwork *xsn, UDPEndpoint *local, XIPVer ipver, bool want_timeouts);
+	bool _internal_send(UDPEndpoint *remote, ZeroCopyBuf *zcb);
 
 	XaxSkinnyNetwork *xsn;
 	XaxSkinnySocket skinny_socket;
@@ -45,7 +47,7 @@ private:
 class SocketFactory_Skinny : public SocketFactory {
 public:
 	SocketFactory_Skinny(XaxSkinnyNetwork *xsn);
-	AbstractSocket *new_socket(UDPEndpoint *local, bool want_timeouts);
+	AbstractSocket *new_socket(UDPEndpoint* local, UDPEndpoint* remote, bool want_timeouts);
 
 private:
 	XaxSkinnyNetwork *xsn;

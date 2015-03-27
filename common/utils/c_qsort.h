@@ -16,7 +16,7 @@
 /*                                                                           */
 #pragma once
 
-// well, drat. I found I needed a qsort in a program whose build engine
+// well, crud. I found I needed a qsort in a program whose build engine
 // only groks C. :v(
 
 #include "pal_abi/pal_types.h"

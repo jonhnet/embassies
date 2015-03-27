@@ -3,9 +3,8 @@
 #include "CoreWriter.h"
 
 using namespace Genode;
-using namespace Block;
 
-CoreWriter::CoreWriter(ChannelWriter *cw, uint32_t size)
+CoreWriter::CoreWriter(ChannelWriterClient *cw, uint32_t size)
 	: _cw(cw),
 	  dbg_size(size>0 ? size : 1),
 	  dbg_count(0),

@@ -62,8 +62,8 @@ ZBlockCacheRecord::~ZBlockCacheRecord()
 #if 0
 void ZBlockCacheRecord::load_data(uint8_t *data, uint32_t valid_data_len)
 {
-	lite_assert(!_valid);	// should do this with unadorned records
-	lite_assert(next_gap==0);	// should do this with unadorned records
+	lite_assert(!_valid);	// should do this with naked records
+	lite_assert(next_gap==0);	// should do this with naked records
 	_load_data_internal(data, valid_data_len, 0, ZFTP_BLOCK_SIZE);
 }
 #endif

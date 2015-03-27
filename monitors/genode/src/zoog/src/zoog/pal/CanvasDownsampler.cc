@@ -11,7 +11,9 @@ CanvasDownsampler::CanvasDownsampler(ZCanvas *canvas, uint8_t *np_bits, MallocFa
 	this->mf = mf;
 	uint32_t app_canvas_size =
 		sizeof(Pixel_zoog_true24) * canvas->width * canvas->height;
+	PDBG("CanvasDownsampler allocating %d\n", app_canvas_size);	// oh, hah.
 	this->app_canvas = (Pixel_zoog_true24 *) mf_malloc(mf, app_canvas_size);
+	PDBG("CanvasDownsampler allocated %d\n", app_canvas_size);	// oh, hah.
 //	np_canvas = new Chunky_canvas<Pixel_rgb565> canvas((Pixel_rgb565 *)np_bits, Area(canvas->width, canvas->height));
 	uint32_t np_canvas_size = sizeof(Pixel_rgb565) * canvas->width * canvas->height;
 	this->np_canvas = (Pixel_rgb565 *) np_bits;

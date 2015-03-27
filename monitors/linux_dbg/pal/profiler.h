@@ -28,7 +28,7 @@ set profiler.reset_flag = false;
 
 */
 
-#define PROFILER_ENABLED 1
+#define PROFILER_ENABLED 0
 
 #ifdef __cplusplus
 extern "C" {

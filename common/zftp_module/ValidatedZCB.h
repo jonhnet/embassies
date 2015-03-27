@@ -29,23 +29,26 @@ public:
 	// Buffer we represent, and the socket it came from
 	ValidatedZCB(ZCache* cache, ZeroCopyBuf* buffer, AbstractSocket* socket);
 	~ValidatedZCB();
-	void read(ZBlockCacheRecord* block, uint32_t buf_offset, uint32_t block_offset, uint32_t len);
-	uint8_t* data() { return buffer->data(); }
+
+	void write_data(ZBlockCacheRecord* block, uint32_t data_offset, uint32_t block_offset, uint32_t len);
+	uint32_t get_payload_len();
+	void recycle();
 
 	ZeroCopyBuf* get_zcb() { return buffer; }
-
-	void set_debug_offset(uint32_t offset) { debug_offset = offset;}
-
-	ZCache* cache;
 
 	void resetDebugStats();
 	void printDebugStats();
 
+protected:
+	uint8_t* get_data_buf();
+
 private:
 	ZeroCopyBuf* buffer;
 	AbstractSocket* socket;
+	ZCache* cache;
 	hash_t* hashes;
-	uint32_t debug_offset;
+
+	bool debug_offset_known;
 
 	uint32_t cache_hits;
 	uint32_t cache_misses;

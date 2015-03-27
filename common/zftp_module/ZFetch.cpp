@@ -6,13 +6,14 @@
 #include "zftp_dir_format.h"
 #include "MemBuf.h"
 
-ZFetch::ZFetch(ZCache *zcache, ZLookupClient *zlookup_client)
+ZFetch::ZFetch(ZCache *zcache, ZLookupClient *zlookup_client, int timeout_ms)
 {
 	this->zcache = zcache;
 	this->mf = zcache->mf;
 	this->zlookup_client = zlookup_client;
 	this->zreq = NULL;
 	this->result = NULL;
+	this->timeout_ms = timeout_ms;
 }
 
 ZFetch::~ZFetch()
@@ -22,6 +23,8 @@ ZFetch::~ZFetch()
 
 bool ZFetch::fetch(const char *fetch_url)
 {
+	zcache->get_compression()->reset_client_context();
+
 	hash_t requested_hash = zlookup_client->lookup_url(fetch_url);
 	hash_t zh = get_zero_hash();
 
@@ -39,7 +42,6 @@ bool ZFetch::fetch(const char *fetch_url)
 		zreq = new ZSyntheticFileRequest(zcache->GetZLCEmit(), zcache->mf, &requested_hash, zcache->sf);
 		zcf->consider_request(zreq);
 
-		int timeout_ms = 1500;
 		i_result = zreq->wait_reply(timeout_ms);
 		if (i_result==NULL)
 		{
@@ -65,7 +67,7 @@ uint8_t *ZFetch::get_payload()
 {
 	uint8_t *payload = (uint8_t*) mf_malloc(mf, payload_size);
 	MemBuf mb(payload, payload_size);
-	result->read(&mb, 0, payload_size);
+	result->write_payload_to_buf(&mb, 0, payload_size);
 	return payload;
 }
 

@@ -1,6 +1,6 @@
 #include "ZHdr.h"
 
-ZHdr::ZHdr()
+ZHdr::ZHdr(uint32_t zftp_lg_block_size)
 {
 	zhdr.z_magic = Z_MAGIC;
 	zhdr.z_version = Z_VERSION;
@@ -10,6 +10,7 @@ ZHdr::ZHdr()
 	zhdr.z_strtab_off = -1;
 	zhdr.z_strtab_len = -1;
 	zhdr.z_dbg_zarfile_len = -1;
+	zhdr.z_lg_block_size = zftp_lg_block_size;
 
 	_phdr0 = NULL;
 	_index_count = -1;
@@ -25,6 +26,11 @@ void ZHdr::set_dbg_zarfile_len(uint32_t dbg_zarfile_len)
 uint32_t ZHdr::get_size()
 {
 	return sizeof(zhdr);
+}
+
+const char* ZHdr::get_type()
+{
+	return "ZHdr";
 }
 
 void ZHdr::emit(FILE *fp)

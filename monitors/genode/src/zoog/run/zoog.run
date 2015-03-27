@@ -92,13 +92,34 @@ append config {
 # this giant quantum takes up whatever init has left, so it needs
 # to run last.
 append config {
-	<start name="zoog_monitor">
+	<start name="zoog_pal_00">
+		<binary name="zoog_pal" />
 		<resource name="RAM" quantum="10M"/>
+	</start>
+	<start name="zoog_pal_01">
+		<binary name="zoog_pal" />
+		<resource name="RAM" quantum="10M"/>
+	</start>
+	<start name="zoog_monitor">
+		<resource name="RAM" quantum="2G"/>
 		<provides><service name="ZoogMonitor"/></provides>
 	</start>
-	<start name="zoog_pal">
-		<resource name="RAM" quantum="2G"/>
-	</start>
+#	<start name="zoog_pal_02">
+#		<binary name="zoog_pal" />
+#		<resource name="RAM" quantum="20M"/>
+#	</start>
+#
+#	<start name="uart_drv">
+#		<resource name="RAM" quantum="1M"/>
+#		<provides><service name="Terminal"/></provides>
+#		<config>
+#			<policy label="gdb_monitor" uart="1"/>
+#		</config>
+#	</start>
+#	<start name="gdb_monitor">
+#		<resource name="RAM" quantum="2G"/>
+#		<config><targe name="zoog_pal"/></config>
+#	</start>
 </config>
 }
 

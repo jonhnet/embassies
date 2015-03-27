@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
 
   app.run(random_supply, argc, argv);
 
-  cout << "Done!\n";
+//  cout << "Done!\n";
 
   return 0;
 }

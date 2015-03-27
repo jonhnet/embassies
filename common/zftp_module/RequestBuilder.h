@@ -51,7 +51,7 @@ private:
 public:
 	RequestBuilder(ZCachedFile *zcf, SyncFactory *sf, DataRange missing_set, uint32_t mtu);
 	~RequestBuilder();
-	OutboundRequest *as_outbound_request();
+	OutboundRequest *as_outbound_request(CompressionContext compression_context);
 
 #if 0 	// dead code?
 	static ZFTPRequestPacket *make_packet(

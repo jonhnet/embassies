@@ -6,7 +6,7 @@
 #include "ZeroCopyBuf_Xnb.h"
 #include "ZeroCopyView.h"
 
-SkinnySocket::SkinnySocket(XaxSkinnyNetwork *xsn, UDPEndpoint *local, bool want_timeouts)
+SkinnySocket::SkinnySocket(XaxSkinnyNetwork *xsn, UDPEndpoint *local, XIPVer ipver, bool want_timeouts)
 {
 	this->xsn = xsn;
 	this->want_timeouts = want_timeouts;
@@ -20,7 +20,7 @@ SkinnySocket::SkinnySocket(XaxSkinnyNetwork *xsn, UDPEndpoint *local, bool want_
 		port_host_order = Z_NTOHG(local->port);
 	}
 
-	xax_skinny_socket_init(&skinny_socket, xsn, port_host_order, local->ipaddr.version);
+	xax_skinny_socket_init(&skinny_socket, xsn, port_host_order, ipver);
 }
 
 SkinnySocket::~SkinnySocket()
@@ -37,6 +37,7 @@ public:
 	uint8_t *header_data() { return zcbx.data(); }
 	ZoogNetBuffer *peek_xnb() { return zcbx.peek_xnb(); }
 	uint32_t get_payload_len() { return payload_len; }
+	void set_payload_len(uint32_t final_len) { this->payload_len = final_len; }
 
 protected:
 	ZeroCopyBuf_Xnb zcbx;
@@ -58,12 +59,14 @@ ZeroCopyBuf *SkinnySocket::zc_allocate(uint32_t payload_len)
 	return zcb;
 }
 
-bool SkinnySocket::zc_send(UDPEndpoint *remote, ZeroCopyBuf *zcb)
+bool SkinnySocket::zc_send(UDPEndpoint *remote, ZeroCopyBuf *zcb, uint32_t final_len)
 {
-	return _internal_send(remote, zcb, false);
+	SFS_ZC *sfs_zc = (SFS_ZC *) zcb;
+	sfs_zc->set_payload_len(final_len);
+	return _internal_send(remote, zcb);
 }
 
-bool SkinnySocket::_internal_send(UDPEndpoint *remote, ZeroCopyBuf *zcb, bool release)
+bool SkinnySocket::_internal_send(UDPEndpoint *remote, ZeroCopyBuf *zcb)
 {
 	// NB we know that we only send() things that this
 	// class also allocate_packet()ed, so it's okay to peek into the
@@ -76,7 +79,7 @@ bool SkinnySocket::_internal_send(UDPEndpoint *remote, ZeroCopyBuf *zcb, bool re
 		skinny_socket.local_ep.ipaddr.version, payload_len);
 	create_udp_packet_buf(sfs_zc->header_data(), packet_len, skinny_socket.local_ep, *remote, payload_len);
 
-	xax_skinny_socket_send(&skinny_socket, sfs_zc->peek_xnb(), release);
+	xax_skinny_socket_send(&skinny_socket, sfs_zc->peek_xnb(), false);
 		// TODO How do we know when the send is complete and we have the
 		// XNB back? Ugh.
 	return true;
@@ -91,7 +94,9 @@ bool SkinnySocket::sendto(UDPEndpoint *remote, void *buf, uint32_t buf_len)
 {
 	ZeroCopyBuf *zcb = zc_allocate(buf_len);
 	lite_memcpy(zcb->data(), buf, buf_len);
-	return _internal_send(remote, zcb, true);
+	bool rc = _internal_send(remote, zcb);
+	zc_release(zcb);
+	return rc;
 }
 
 ZeroCopyBuf *SkinnySocket::recvfrom(UDPEndpoint *out_remote)
@@ -128,9 +133,26 @@ SocketFactory_Skinny::SocketFactory_Skinny(XaxSkinnyNetwork *xsn)
 	this->xsn = xsn;
 }
 
-AbstractSocket *SocketFactory_Skinny::new_socket(UDPEndpoint *local, bool want_timeouts)
+AbstractSocket *SocketFactory_Skinny::new_socket(UDPEndpoint* local, UDPEndpoint* remote, bool want_timeouts)
 {
-	SkinnySocket *ss = new SkinnySocket(xsn, local, want_timeouts);
+	// ZFileClient may specify 'remote' here, but then he'll come along later
+	// and specify the destination again in sendto(). So we can ignore it.
+
+	XIPVer ipver;
+	if (local!=NULL)
+	{
+		ipver = local->ipaddr.version;
+	}
+	else if (remote!=NULL)
+	{
+		ipver = remote->ipaddr.version;
+	}
+	else
+	{
+		lite_assert(false);	// cannot infer ip version!
+	}
+
+	SkinnySocket *ss = new SkinnySocket(xsn, local, ipver, want_timeouts);
 	if (!ss->skinny_socket.valid)
 	{
 		delete ss;

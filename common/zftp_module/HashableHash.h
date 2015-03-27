@@ -30,4 +30,5 @@ public:
 	void increment();
 	uint32_t get_found_at_offset();
 	uint32_t get_num_occurrences();
+	hash_t* get_hash() { return &_hash; }
 };

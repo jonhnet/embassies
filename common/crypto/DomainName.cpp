@@ -85,7 +85,10 @@ DomainName::DomainName(const uint8_t* dnsbuffer, uint32_t size) {
 	while (this->len < min(MAX_DNS_NAME_LEN, size)) {
 		uint8_t labelLen = dnsbuffer[this->len];
 
-		if ((uint32_t)(this->len + labelLen + 1) > size) { Throw(CryptoException::BAD_INPUT, "DomainName exceeded bounds"); }
+		if ((uint32_t)(this->len + labelLen + 1) > min(MAX_DNS_NAME_LEN, size))
+		{
+			Throw(CryptoException::BAD_INPUT, "DomainName exceeded bounds");
+		}
 
 		// Copy the label's bytes (offset by 1 to skip past the labelLen)
 		for (uint8_t i = 0; i < labelLen; i++) {			

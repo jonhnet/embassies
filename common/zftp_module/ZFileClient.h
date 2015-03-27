@@ -26,6 +26,7 @@
 class ZFileClient {
 public:
 	ZFileClient(ZCache *zcache, UDPEndpoint *origin_zftp, SocketFactory *sockf, ThreadFactory *tf, uint32_t max_payload);
+	void dbg_enable_bandwidth_reporting(ZoogDispatchTable_v1* dbg_zdt);
 
 	// cache pokes here to make upstream request
 	void issue_request(OutboundRequest *obr);
@@ -36,11 +37,17 @@ private:
 	static void _run_trampoline(void *v_this);
 	void run_worker();
 	ZFileReplyFromServer *_receive();
+	void dbg_bw_measure(uint32_t payload_len);
 
 	ZCache *zcache;
 	ZLCEmit *ze;
 	UDPEndpoint *origin_zftp;
 	AbstractSocket *sock;
 	uint32_t _max_payload;
+
+	ZoogDispatchTable_v1* dbg_zdt;
+	bool dbg_bw_started;
+	uint32_t dbg_total_payload;
+	uint64_t dbg_start_time;
 };
 

@@ -10,6 +10,7 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <pthread.h>
 #include <stdint.h>
 
@@ -29,6 +30,7 @@ ZoogVM::ZoogVM(MallocFactory *mf, MmapOverride *mmapOverride, bool wait_for_core
 	this->sf = new SyncFactory_Pthreads();
 	this->mmapOverride = mmapOverride;
 	this->wait_for_core = wait_for_core;
+	this->_avx_available = false;
 	this->mutex = sf->new_mutex(false);
 	this->memory_map_mutex = sf->new_mutex(false);
 	guest_memory_allocator = new CoalescingAllocator(sf, true);
@@ -129,9 +131,30 @@ void ZoogVM::_map_physical_memory()
 	}
 }
 
+void ZoogVM::_test_cpu_flags()
+{
+	// kvm kernel panics if you ask for AVX on a processor that doesn't
+	// support it. Ask me how I know. :v)
+	pid_t pid = fork();
+	if (pid==0)
+	{
+		execlp("grep", "grep", "-q", "flags\\s*:.*\\<avx\\>", "/proc/cpuinfo", NULL);
+		exit(-1);
+	}
+	lite_assert(pid>0);
+	int status = -1;
+	int waited = waitpid(pid, &status, 0);
+	lite_assert(waited == pid);
+	int exitstatus = WEXITSTATUS(status);
+	_avx_available = exitstatus==0;
+//	fprintf(stderr, "Detected AVX: %d\n", _avx_available);
+}
+
 void ZoogVM::_setup()
 {
 	int rc;
+
+	_test_cpu_flags();
 
 	kvmfd=open("/dev/kvm", O_RDWR);
 	perror("Open kvm");
@@ -376,6 +399,10 @@ void ZoogVM::start()
 		{
 			while (true)
 			{
+				if (coredump_request_immediate)
+				{
+					break;
+				}
 				char buf[50];
 				fprintf(stderr, "Type \"core\" for corefile: ");
 				fflush(stderr);
@@ -391,6 +418,7 @@ void ZoogVM::start()
 			emit_corefile(fp);
 			fclose(fp);
 			coredump_request_flag = false;
+			coredump_request_immediate = false;
 			fprintf(stderr, "Dumped core to %s\n", coredump_fn);
 		}
 	}
@@ -433,6 +461,14 @@ void ZoogVM::request_coredump()
 	{
 		exit(-1);
 	}
+}
+
+void ZoogVM::request_coredump_immediate()
+{
+	// requested from debugger; want it as close to synchronous as
+	// possible.
+	this->coredump_request_flag = true;
+	this->coredump_request_immediate = true;
 }
 
 void ZoogVM::record_vcpu(ZoogVCPU *vcpu)

@@ -15,6 +15,7 @@ ChunkTable::~ChunkTable()
 	while (chunks.count>0)
 	{
 		ZF_Chdr *chunk = (ZF_Chdr*) linked_list_remove_head(&chunks);
+		(void) chunk; // get rid of compiler warning
 		// NB this does *not* own the chunk; we gave it to the caller
 		// of allocate(), who handed it off to the Placer, who will
 		// be taking care of deleting it.
@@ -37,6 +38,11 @@ uint32_t ChunkTable::allocate(ChunkEntry *chunk)
 	uint32_t result = chunk_index;
 	chunk_index += 1;
 	return result;
+}
+
+const char* ChunkTable::get_type()
+{
+	return "ChunkTable";
 }
 
 void ChunkTable::emit(FILE *fp)

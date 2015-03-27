@@ -6,6 +6,8 @@
 #include "zlc_util.h"
 #include "sockaddr_util.h"
 #include "ValidatedZCB.h"
+#include "CompressedZCB.h"
+#include "MemBuf.h"
 
 #define MIN_CACHE_SIZE	(1<<20)
 	// Only play the memcpy-avoiding caching game with packets at least
@@ -26,7 +28,7 @@ ZFileServer::ZFileServer(ZCache *zcache, UDPEndpoint *listen_zftp, SocketFactory
 	lite_assert(listen_zftp!=NULL);
 
 	this->zcache = zcache;
-	this->socket = sf->new_socket(listen_zftp, false);
+	this->socket = sf->new_socket(listen_zftp, NULL, false);
 	tf->create_thread(_run_trampoline, this, 128<<10);
 }
 
@@ -82,33 +84,72 @@ void ZFileServer::run_worker()
 bool ZFileServer::req_is_cachable(ZFileRequest *req)
 {
 	return use_zero_copy_reply_optimization
-		&& !req->get_data_range().is_empty();
+		&& !req->get_data_range().is_empty()
+		&& req->get_compression_context().state_id==ZFTP_NO_COMPRESSION;
 }
 
 void ZFileServer::send_reply(ZFileRequest *req, uint32_t payload_len)
+	// NB "payload" here refers to the entire ZDP and its zftp payload,
+	// but excludes any IP/UDP headers.
 {
 	ZWireFileRequest *creq = (ZWireFileRequest *) req;
 	Buf* vbuf = NULL;
 	ZeroCopyBuf* zcb = NULL;
+
+//	bool debug_diagnose_bogus_zarfile = false;
 
 	if (cached_vbuf != NULL && 
 			cached_vbuf->get_zcb()->len() >= payload_len &&
 			payload_len >= MIN_CACHE_SIZE) {
 		// Recycle the vbuf we already have
 		ZLC_COMPLAIN(zcache->GetZLCEmit(), "using recycled vbuf\n");
+//		debug_diagnose_bogus_zarfile = true;
 		vbuf = cached_vbuf;
+		((ValidatedZCB*) vbuf)->recycle();
 		zcb = cached_vbuf->get_zcb();
 		cached_vbuf = NULL;
 	} else {
-		zcb = socket->zc_allocate(payload_len);
-		vbuf = new ValidatedZCB(zcache, zcb, socket);
+		if (cached_vbuf!=NULL)
+		{
+			ZLC_COMPLAIN(zcache->GetZLCEmit(),
+				"Can't recycle. cached_vbuf len %d, payload_len %d, MIN %d\n",,
+				cached_vbuf->get_zcb()->len(), payload_len, MIN_CACHE_SIZE);
+		}
+		if (req->get_compression_context().state_id == ZFTP_NO_COMPRESSION)
+		{
+			zcb = socket->zc_allocate(payload_len);
+			vbuf = new ValidatedZCB(zcache, zcb, socket);
+		}
+		else
+		{
+			ZStreamIfc* zstream =
+				zcache->get_compression()
+					->get_stream(req->get_compression_context(), ZCompressionIfc::COMPRESS);
+			zcb = socket->zc_allocate(zstream->stretch(payload_len));
+			vbuf = zcache->get_compression()->make_compressed_zcb(
+				zcb, socket, zcache->mf, zstream);
+		}
 	}
 	creq->fill_payload(vbuf);
-		
-	bool rc = socket->zc_send(&creq->remote_addr, zcb);
+
+//	if (debug_diagnose_bogus_zarfile)
+//	{
+//		uint8_t* buf = (uint8_t*) mf_malloc(zcache->mf, payload_len);
+//		MemBuf mb(buf, payload_len);
+//		creq->fill_payload(&mb);
+//		lite_assert(zcb->len() == payload_len);
+//		bool result = memcmp(zcb->data(), buf, payload_len)==0;
+//		ZLC_COMPLAIN(zcache->GetZLCEmit(),
+//			"After sloooowly comparing both versions, match = %d\n",,
+//			result);
+//		mf_free(zcache->mf, buf);
+//	}
+
+	bool rc = socket->zc_send(&creq->remote_addr, zcb, vbuf->get_packet_len());
 	if (rc)
 	{
 		//ZLC_COMPLAIN(zcache->GetZLCEmit(), "Workin' for a living.\n");
+//		vbuf->printDebugStats();
 		pmi->mark_time("sent a constructed reply (slow path)");
 	}
 	else
@@ -138,7 +179,7 @@ void ZFileServer::cache_or_discard_result(ZFileRequest *req, uint32_t payload_le
 		}
 
 		// Pre-build another copy in case the next request is hot.
-		ZeroCopyBuf* cached_zcb = socket->zc_allocate(payload_len);
+		ZeroCopyBuf* cached_zcb = socket->zc_allocate(payload_len+fast_case_cushion);
 		cached_vbuf = new ValidatedZCB(zcache, cached_zcb, socket);
 
 		creq->fill_payload(cached_vbuf);
@@ -172,7 +213,7 @@ bool ZFileServer::zero_copy_reply_optimization(ZFileRequest *req)
 	}
 
 	ZWireFileRequest *creq = (ZWireFileRequest *) req;
-	bool rc = socket->zc_send(&creq->remote_addr, cached_vbuf->get_zcb());
+	bool rc = socket->zc_send(&creq->remote_addr, cached_vbuf->get_zcb(), cached_vbuf->get_packet_len());
 	if (!rc)
 	{
 		ZLC_COMPLAIN(zcache->GetZLCEmit(), "bummer, send of (cached) reply failed.\n");

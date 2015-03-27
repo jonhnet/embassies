@@ -48,6 +48,7 @@ public:
 	hash_t *get_hash() { return &zrp->file_hash; }
 
 	uint32_t get_padding_request() { return padding_request; }
+	CompressionContext get_compression_context() { return compression_context; }
 	DataRange get_data_range() { return data_range; }
 
 	uint32_t get_num_tree_locations();
@@ -75,5 +76,6 @@ private:
 	MallocFactory *mf;
 	DataRange data_range;
 	uint32_t padding_request;
+	CompressionContext compression_context;
 };
 

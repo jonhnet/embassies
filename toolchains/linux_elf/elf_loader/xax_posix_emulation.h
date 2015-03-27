@@ -69,6 +69,7 @@ struct s_xax_posix_emulation {
 	PerfMeasure *perf_measure;
 	bool strace_flag;
 	bool mmap_flag;
+	bool trace_flag;
 
 	uint32_t *exit_zutex;
 

@@ -24,7 +24,7 @@ A simple sampling profiler.
 NB the current implementation is broken in a few ways.
 
 The most important is that it has a segfault-y race. It walks the ebp stack,
-which isn't always valid. Two things make ebp become meaningless: the two places
+which isn't always valid. Two things make ebp go nuts: the two places
 where we go through a linux-syscall calling convention.
 
 The first is gsfree_syscall (a real linux syscall, at the bottom

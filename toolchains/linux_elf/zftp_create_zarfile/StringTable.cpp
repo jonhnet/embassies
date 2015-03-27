@@ -58,6 +58,11 @@ uint32_t StringTable::allocate(const char *url)
 	return string_index;
 }
 
+const char* StringTable::get_type()
+{
+	return "StringTable";
+}
+
 void StringTable::emit(FILE *fp)
 {
 	LinkedListIterator lli;

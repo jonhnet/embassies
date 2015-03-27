@@ -239,7 +239,24 @@ void XblitCanvas::x_update_image(ZRectangle *wr)
 	//lite_assert(rci==0); // undocumented, but definitely not zero!
 }
 
+class SetWindowLabelWork : public XWork {
+private:
+	XblitCanvas *xbc;
+	const char* window_label;
+public:
+	SetWindowLabelWork(XblitCanvas *xbc, const char* window_label)
+		: XWork(xbc->xblit->get_sf()), xbc(xbc), window_label(window_label)
+		{ }
+	void run() { xbc->x_set_window_label(window_label); }
+};
+
 void XblitCanvas::set_window_label(const char *window_label)
+{
+	SetWindowLabelWork swlw(this, window_label);
+	xblit->do_work(&swlw);
+}
+
+void XblitCanvas::x_set_window_label(const char *window_label)
 {
 	if (_window_label!=NULL)
 	{

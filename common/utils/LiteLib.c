@@ -130,6 +130,20 @@ bool lite_ends_with(const char *suffix, const char *str)
 	return lite_memcmp(str+str_len-suffixlen, suffix, suffixlen)==0;
 }
 
+int lite_split(const char* buf, char delim, const char** out_fields, int max_fields)
+{
+	int f = 0;
+	while (f<max_fields)
+	{
+		out_fields[f] = buf;
+		buf = lite_index(buf, delim);
+		f++;
+		if (buf==NULL) { break; }
+		buf += 1;	// point after the delimiter.
+	}
+	return f;
+}
+
 void lite_memcpy(void *dst, const void *src, size_t n)
 {
 	char *dstc = (char *) dst;

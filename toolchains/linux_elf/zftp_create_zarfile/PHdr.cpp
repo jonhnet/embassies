@@ -31,6 +31,11 @@ void PHdr::connect_chunks(uint32_t chunk_index, uint32_t chunk_count)
 	phdr.z_chunk_count = chunk_count;
 }
 
+const char* PHdr::get_type()
+{
+	return "PHdr";
+}
+
 void PHdr::emit(FILE *fp)
 {
 	int rc = fwrite(&phdr, sizeof(phdr), 1, fp);
@@ -40,4 +45,14 @@ void PHdr::emit(FILE *fp)
 uint32_t PHdr::get_file_len()
 {
 	return phdr.z_file_len;
+}
+
+bool PHdr::is_dir()
+{
+	return (phdr.protocol_metadata.flags & ZFTP_METADATA_FLAG_ISDIR)!=0;
+}
+
+bool PHdr::is_enoent()
+{
+	return (phdr.protocol_metadata.flags & ZFTP_METADATA_FLAG_ENOENT)!=0;
 }

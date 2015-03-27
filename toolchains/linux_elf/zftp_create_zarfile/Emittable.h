@@ -28,6 +28,7 @@ public:
 	virtual ~Emittable() {};
 	virtual uint32_t get_size() = 0;
 	virtual void emit(FILE *fp) = 0;
-	void set_location(uint32_t offset) { _offset = offset; }
+	virtual const char* get_type() = 0;
+	virtual void set_location(uint32_t offset) { _offset = offset; }
 	uint32_t get_location() { return _offset; }
 };

@@ -4,7 +4,7 @@
 #include "zftp_util.h"
 #include "zlc_util.h"
 #include "zftp_dir_format.h"
-
+#include "ZFTPRequestPacketInit.h"
 
 // Used to parcel out the hashing of a large data chunk
 typedef struct {
@@ -225,7 +225,8 @@ ZFastFetch::ZFastFetch(
 			this->mf,  &broadcast, KEYVAL_PORT);
 	lite_assert(keyval_endpoint);
 
-	AbstractSocket* keyval_sock = sockf->new_socket(sockf->get_inaddr_any(ipv4), true);
+	AbstractSocket* keyval_sock = sockf->new_socket(
+		sockf->get_inaddr_any(ipv4), NULL, true);
 	lite_assert(keyval_sock);
 
 	this->keyval_client = new KeyValClient(this->mf, keyval_sock, keyval_endpoint, ze);
@@ -315,31 +316,28 @@ ZeroCopyBuf *ZFastFetch::fetch(const char * vendor_name, const char *fetch_url)
 		return false;
 	}
 
+	CompressionContext no_compression_context = { ZFTP_NO_COMPRESSION, 0 };
 	ZFTPRequestPacket *zrp = (ZFTPRequestPacket *)
 		mf_malloc(this->mf, sizeof(ZFTPRequestPacket));
-	zrp->hash_len = z_htons(sizeof(hash_t));
-	zrp->url_hint_len = z_htong(0, sizeof(zrp->url_hint_len));	// TODO may need to pass along
-	zrp->file_hash = requested_hash;
-	zrp->num_tree_locations = z_htong(0, sizeof(zrp->num_tree_locations));
-		// don't need ANY merkle, since we trust ya! (or later,
-		// when Bryan shows up here, since we have a full-file hash/MAC
-		// to check)
-	
-	uint32_t padding_request = 0x1000 - 0x89+0xc;
-		// TODO hard-coded padding offset. See notes 2012.07.05.
-		// There are known factors in here (IPv6, UDP, ZFTP headers),
-		// but also a host-dependent factor. So a correct implementation
-		// will need to probe the host to figure out what that offset is.
-		// We probably want that probe to be driven by zftp_zoog, so we
-		// can avoid needing an extra probe round-trip in the fast path.
-
-	zrp->padding_request = z_htong(padding_request, sizeof(zrp->padding_request));
-	zrp->data_start = z_htong(0, sizeof(zrp->data_start));
-	zrp->data_end = z_htong((uint32_t) -1, sizeof(zrp->data_end));
+	ZFTPRequestPacketInit(zrp,
+		/* url_hint_len */ 0,
+		requested_hash,
+		/* num_tree_locations */ 0,
+		/* padding_request */ 0x1000 - 0x89/*+0xc*/,
+			// TODO hard-coded padding offset. See notes 2012.07.05.
+			// There are known factors in here (IPv6, UDP, ZFTP headers),
+			// but also a host-dependent factor. So a correct implementation
+			// will need to probe the host to figure out what that offset is.
+			// We probably want that probe to be driven by zftp_zoog, so we
+			// can avoid needing an extra probe round-trip in the fast path.
+		no_compression_context,
+		/* data_start */ 0,
+		/* data_end */ (uint32_t) -1
+	);
 
 //	perf_measure->mark_time("ZFastFetch::fetch before send");
 	AbstractSocket *sock = sockf->new_socket(
-		sockf->get_inaddr_any(origin_zftp->ipaddr.version), false);
+		sockf->get_inaddr_any(origin_zftp->ipaddr.version), NULL, false);
 	bool rc = sock->sendto(origin_zftp, zrp, sizeof(ZFTPRequestPacket));
 	lite_assert(rc);
 	mf_free(mf, zrp);
@@ -350,7 +348,7 @@ ZeroCopyBuf *ZFastFetch::fetch(const char * vendor_name, const char *fetch_url)
 
 	// Wrap decoded packet in a ZCB interface (which will reclaim the
 	// packet on delete)
-	ZFileReplyFromServer *reply = new ZFileReplyFromServer(zcb, ze);
+	ZFileReplyFromServer *reply = new ZFileReplyFromServer(zcb, ze, /* ZCompressionIfc*/ NULL);
 	if (!reply->is_valid())
 	{
 		ZLC_COMPLAIN(ze, "FastFetch failed for %s\n",, fetch_url);
@@ -418,6 +416,26 @@ ZeroCopyBuf *ZFastFetch::fetch(const char * vendor_name, const char *fetch_url)
 		               &new_mac_list, random_supply, mac_key);
 		insert_mac(&index, &new_mac_list);
 		perf_measure->mark_time("mac_end");
+
+#define DEBUG_VMAC_TIMES 0
+#if DEBUG_VMAC_TIMES
+		{
+		perf_measure->mark_time("mac_start2");
+		mac_list new_mac_list;
+		distribute_mac(data_zcb->data(), data_zcb->len(), 
+		               &new_mac_list, random_supply, mac_key);
+		insert_mac(&index, &new_mac_list);
+		perf_measure->mark_time("mac_end2");
+		}
+		{
+		perf_measure->mark_time("mac_start3");
+		mac_list new_mac_list;
+		distribute_mac(data_zcb->data(), data_zcb->len(), 
+		               &new_mac_list, random_supply, mac_key);
+		insert_mac(&index, &new_mac_list);
+		perf_measure->mark_time("mac_end3");
+		}
+#endif // DEBUG_VMAC_TIMES
 	} else {
 		ZLC_TERSE(ze, "Found an old MAC\n");
 		
@@ -426,6 +444,22 @@ ZeroCopyBuf *ZFastFetch::fetch(const char * vendor_name, const char *fetch_url)
 		bool valid_mac = distribute_mac_verify(data_zcb->data(), data_zcb->len(),
 		                                       &old_mac_list, mac_key);
 		perf_measure->mark_time("mac_verify_end");
+#if DEBUG_VMAC_TIMES
+		{
+		perf_measure->mark_time("mac_verify_start2");
+		bool valid_mac = distribute_mac_verify(data_zcb->data(), data_zcb->len(),
+		                                       &old_mac_list, mac_key);
+		perf_measure->mark_time("mac_verify_end2");
+		(void) valid_mac;
+		}
+		{
+		perf_measure->mark_time("mac_verify_start3");
+		bool valid_mac = distribute_mac_verify(data_zcb->data(), data_zcb->len(),
+		                                       &old_mac_list, mac_key);
+		perf_measure->mark_time("mac_verify_end3");
+		(void) valid_mac;
+		}
+#endif // DEBUG_VMAC_TIMES
 
 		if (!valid_mac) {
 			// Panic

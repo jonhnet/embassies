@@ -31,5 +31,6 @@ public:
 	uint32_t allocate(const char* url);
 
 	virtual uint32_t get_size();
+	const char* get_type();
 	virtual void emit(FILE *fp);
 };

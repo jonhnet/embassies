@@ -9,6 +9,7 @@
 #include "ThreadFactory_Cheesy.h"
 #include "ZFileClient.h"
 #include "ZLCTestHarness.h"
+#include "ZCompressionStub.h"
 
 #include "droptest.h"
 
@@ -34,7 +35,7 @@ DropTest::DropTest(
 	ZLC_TERSE(ze, "ZLCVFS starts, calling evil\n");
 	_setup_server_addrs(server, zlcargs.origin_lookup, zlcargs.origin_zftp);
 	SendBufferFactory_Xnb *sbf = new SendBufferFactory_Xnb(zdt);
-	zcache = new ZCache(&zlcargs, mf, sf, ze, sbf);
+	zcache = new ZCache(&zlcargs, mf, sf, ze, sbf, new ZCompressionStub());
 
 	socket_factory = new SocketFactory_Skinny(xsn);
 	ThreadFactory *thread_factory = new ThreadFactory_Cheesy(zdt);

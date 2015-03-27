@@ -19,11 +19,12 @@
 #include "zlc_util.h"
 #include "ZFastFetch.h"
 #include "MemBuf.h"
+#include "ZCompressionStub.h"
 
 enum { RETRY_TIME_MS = 1500 };
 
-ZLCHandle::ZLCHandle(ZLCVFS *zlcvfs, ZCachedFile *zcf, char *url_for_stat)
-	: ZFTPDecoder(zlcvfs->get_zcache()->mf, zlcvfs, url_for_stat)
+ZLCHandle::ZLCHandle(ZLCVFS *zlcvfs, ZCachedFile *zcf, char *url_for_stat, TraceCollectorHandle* traceHandle)
+	: ZFTPDecoder(zlcvfs->get_zcache()->mf, zlcvfs, url_for_stat, traceHandle)
 {
 	this->zlcvfs = zlcvfs;
 	this->zcf = zcf;
@@ -83,7 +84,7 @@ void ZLCHandle::_internal_read(void *buf, uint32_t count, uint32_t offset)
 		ValidFileResult *vfr = (ValidFileResult *) i_result;
 
 		MemBuf mb((uint8_t*)buf, count);
-		vfr->read(&mb, offset, count);
+		vfr->write_payload_to_buf(&mb, offset, count);
 		delete zreq;	// cleans up vfr, too.
 		break;
 	}
@@ -106,7 +107,8 @@ ZLCZCBHandle::ZLCZCBHandle(ZLCVFS *zlcvfs, ZeroCopyBuf *zcb)
 	: ZFTPDecoder(
 		zlcvfs->get_zcache()->mf,
 		zlcvfs,
-		NULL /* url_for_stat -- noone's going to stat the zarfile*/ )
+		NULL /* url_for_stat -- noone's going to stat the zarfile*/,
+		NULL /* traceHandle -- don't care about trace if we have a zarfile */)
 {
 	this->zlcvfs = zlcvfs;
 	this->zcb = zcb;
@@ -152,7 +154,8 @@ void* ZLCZCBHandle::fast_mmap(size_t len, uint64_t offset)
 
 //////////////////////////////////////////////////////////////////////////////
 
-ZLCVFS::ZLCVFS(XaxPosixEmulation* xpe, ZLCEmit* ze)
+ZLCVFS::ZLCVFS(XaxPosixEmulation* xpe, ZLCEmit* ze, TraceCollector* traceCollector)
+	: traceCollector(traceCollector)
 {
 	this->xpe = xpe;
 	this->ze = ze;
@@ -160,16 +163,21 @@ ZLCVFS::ZLCVFS(XaxPosixEmulation* xpe, ZLCEmit* ze)
 		(UDPEndpoint*) mf_malloc(xpe->mf, sizeof(UDPEndpoint));
 	this->zlcargs.origin_zftp =
 		(UDPEndpoint*) mf_malloc(xpe->mf, sizeof(UDPEndpoint));
-	ZLC_TERSE(ze, "ZLCVFS starts, calling evil\n");
-	_evil_get_server_addresses(zlcargs.origin_lookup, zlcargs.origin_zftp);
+	// ZLC_TERSE(ze, "ZLCVFS starts, calling evil\n");
 	SendBufferFactory_Xnb *sbf = new SendBufferFactory_Xnb(xpe->zdt);
 	SyncFactory *sf = xpe->xax_skinny_network->get_timer_sf();
 	this->zcache = new ZCache(
-		&this->zlcargs, xpe->mf, sf, ze, sbf);
+		&this->zlcargs, xpe->mf, sf, ze, sbf, new ZCompressionStub());
+		// We don't need to supply a ZCompression because we never
+		// ask for (and hence never receive) compressed data.
 
 
 	socket_factory = new SocketFactory_Skinny(xpe->xax_skinny_network);
 	ThreadFactory *thread_factory = new ThreadFactory_Cheesy(xpe->zdt);
+
+	fast_fetch_helper = new FastFetchHelper(xpe->xax_skinny_network, socket_factory, ze);
+	fast_fetch_helper->_evil_get_server_addresses(
+		zlcargs.origin_lookup, zlcargs.origin_zftp);
 
 	uint32_t mtu = 16834;
 	debug_get_link_mtu_f *debug_get_link_mtu = (debug_get_link_mtu_f *)
@@ -182,104 +190,26 @@ ZLCVFS::ZLCVFS(XaxPosixEmulation* xpe, ZLCEmit* ze)
 	uint32_t max_payload = mtu - (sizeof(IP4Header) + sizeof(UDPPacket));
 
 	this->zfile_client = new ZFileClient(this->zcache, this->zlcargs.origin_zftp, socket_factory, thread_factory, max_payload);
+//	this->zfile_client->dbg_enable_bandwidth_reporting(xpe->zdt);
 	this->zcache->configure(NULL, this->zfile_client);
 
 	this->zlookup_client = new ZLookupClient(this->zlcargs.origin_lookup, socket_factory, sf, ze);
-}
-
-void ZLCVFS::_evil_get_server_addresses(
-	UDPEndpoint *out_lookup_ep,
-	UDPEndpoint *out_zftp_ep)
-{
-//	discovery_client_get_zftp_server_only(xpe->zdt, xpe->xax_skinny_network, ipv4, &out_zftp_ep->ipaddr);
-
-	XIPifconfig *ipv4_ifconfig = xpe->xax_skinny_network->get_ifconfig(ipv4);
-	out_zftp_ep->ipaddr = ipv4_ifconfig->gateway;
-	
-	out_zftp_ep->port = z_htons(ZFTP_PORT);
-	*out_lookup_ep = *out_zftp_ep;
-	out_lookup_ep->port = z_htons(ZFTP_HASH_LOOKUP_PORT);
-}
-
-bool ZLCVFS::_find_fast_fetch_origin(UDPEndpoint *out_origin)
-{
-	// query ipv6 broadcast for anyone willing to answer ZFTP queries
-	UDPEndpoint bcast_ep;
-	bcast_ep.ipaddr = get_ip_subnet_broadcast_address(ipv6);
-	bcast_ep.port = z_htons(ZFTP_PORT);
-
-	AbstractSocket *test_socket = socket_factory->new_socket(
-		socket_factory->get_inaddr_any(ipv6), true);
-	if (test_socket==NULL)
-	{
-		ZLC_TERSE(ze, "_find_fast_fetch_origin: No ipv6 address available.\n");
-		delete test_socket;
-		return false;
-	}
-
-	{
-		ZeroCopyBuf *zcb = test_socket->zc_allocate(sizeof(ZFTPRequestPacket));
-		ZFTPRequestPacket *zrp = (ZFTPRequestPacket *) zcb->data();
-		zrp->hash_len = z_htons(sizeof(hash_t));
-		zrp->url_hint_len = z_htong(0, sizeof(zrp->url_hint_len));	// TODO may need to pass along
-		zrp->file_hash = get_zero_hash();
-		zrp->num_tree_locations = z_htong(0, sizeof(zrp->num_tree_locations));
-		zrp->data_start = z_htong(0, sizeof(zrp->data_start));
-		zrp->data_end = z_htong(0, sizeof(zrp->data_end));
-
-		bool rc = test_socket->zc_send(&bcast_ep, zcb);
-		lite_assert(rc);
-
-		test_socket->zc_release(zcb);
-	}
-
-	UDPEndpoint remote;
-	ZeroCopyBuf *reply = test_socket->recvfrom(&remote);
-	if (reply==NULL)
-	{
-		// timeout.
-		ZLC_TERSE(ze, "_find_fast_fetch_origin: timeout polling server.\n");
-		delete test_socket;
-		return false;
-	}
-
-	char disp[100];
-	if (reply->len() < sizeof(ZFTPReplyHeader))
-	{
-		cheesy_snprintf(disp, sizeof(disp), "short reply %d bytes", reply->len());
-	}
-	else
-	{
-		ZFTPReplyHeader *zrh = (ZFTPReplyHeader *) reply->data();
-		cheesy_snprintf(disp, sizeof(disp), "reply code %x", Z_NTOHG(zrh->code));
-	}
-
-	char ipbuf[100];
-	format_ip(ipbuf, sizeof(ipbuf), &remote.ipaddr);
-	ZLC_TERSE(ze, "Got ipv6 zftp reply from %s; %s\n",, ipbuf, disp);
-	*out_origin = remote;
-	delete test_socket;
-	return true;	// could be false when we learn to timeout
 }
 
 XaxVFSHandleIfc *ZLCVFS::_fast_fetch_zarfile(const char *fetch_url)
 {
 	UDPEndpoint fast_origin;
 	bool rc = false;
-	rc = _find_fast_fetch_origin(&fast_origin);
+	rc = fast_fetch_helper->_find_fast_fetch_origin(&fast_origin);
 	if (!rc)
 	{
 		return NULL;
 	}
 
-	uint8_t seed[RandomSupply::SEED_SIZE];
-	this->xpe->zdt->zoog_get_random(sizeof(seed), seed);
-	RandomSupply* random_supply = new RandomSupply(seed);
+	RandomSupply* random_supply;
+	KeyDerivationKey* appKey;
+	fast_fetch_helper->init_randomness(this->xpe->zdt, &random_supply, &appKey);
 
-	uint8_t app_secret[SYM_KEY_BITS/8];
-	this->xpe->zdt->zoog_get_app_secret(sizeof(app_secret), app_secret);
-	KeyDerivationKey* appKey = new KeyDerivationKey(app_secret, sizeof(app_secret));
-	
 	ThreadFactory* thread_factory = new ThreadFactory_Cheesy(xpe->zdt);
 	SyncFactory* sync_factory = xpe->xax_skinny_network->get_timer_sf();
 
@@ -326,6 +256,11 @@ XaxVFSHandleIfc *ZLCVFS::open(
 	XaxVFSHandleIfc *result = NULL;
 
 	MallocFactory *mf = xpe->mf;
+
+	TraceCollectorHandle* traceHandle = NULL;
+	if (traceCollector!=NULL) {
+		traceHandle = traceCollector->open(path->suffix);
+	}
 
 	char *url_hint, *url_for_stat;
 	assemble_urls(mf, path, &url_hint, &url_for_stat);
@@ -377,12 +312,15 @@ XaxVFSHandleIfc *ZLCVFS::open(
 			break;
 		}
 
-		result = new ZLCHandle(this, zcf, url_for_stat);
+		result = new ZLCHandle(this, zcf, url_for_stat, traceHandle);
+		traceHandle = NULL;		// now owned by handle
 		url_for_stat = NULL;	// now owned by handle
 	}
 	*err = XFS_NO_ERROR;
 
 done:
+	delete traceHandle;	// if we didn't give it away.
+	
 	mf_free(mf, url_hint);
 	if (url_for_stat!=NULL)
 	{

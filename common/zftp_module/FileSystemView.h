@@ -25,13 +25,14 @@ class FileSystemView {
 private:
 	MallocFactory *mf;
 	SyncFactory *sf;
+	bool hide_icons_dir;
 	LinkedList overlays;
 	uint32_t max_prefix;
 	
 	ZFSReader *_open_one_real_path(const char *path);
 
 public:
-	FileSystemView(MallocFactory *mf, SyncFactory *sf);
+	FileSystemView(MallocFactory *mf, SyncFactory *sf, bool hide_icons_dir);
 	~FileSystemView();
 	void insert_overlay(const char *path);
 		// puts path before all other prefixes in the overlay.

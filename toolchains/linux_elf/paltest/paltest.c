@@ -47,8 +47,8 @@ elfmain(
 	DO_TEST(seg)
 	DO_TEST(alarm)
 	DO_TEST(net)
-	DO_TEST(recv)		// never terminates; not a unit test.
 	DO_TEST(mem)
+	DO_TEST(recv)		// never terminates; not a unit test.
 
 	(g_debuglog)("stderr", "All tests successfull.\n");
 	(zdt->zoog_exit)();

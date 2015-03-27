@@ -63,7 +63,7 @@ int xi_shutdown(XaxPosixEmulation *xpe, int filenum, int how)
 #define SOCK_NONBLOCK (0x800)
 int _xi_socketset(XaxPosixEmulation *xpe, XaxVFSHandleTableIfc *xht, int domain, int type, int protocol, int *fds, int n)
 {
-	// TODO: expedient
+	// TODO: Hack
 	bool nonblock = false;
 	if ((type & SOCK_NONBLOCK) > 0) {
 		nonblock = true;

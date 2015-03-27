@@ -19,6 +19,7 @@
 #include "malloc_factory.h"
 #include "XaxVFS.h"
 #include "zftp_dir_format.h"
+#include "TraceCollector.h"
 
 #define RAW_URL_SENTINEL	"raw_url"
 
@@ -28,8 +29,12 @@
 // and zarfile handles.
 
 class ZFTPDecoder : public XaxVFSHandlePrototype {
+	// A ZFTPDecoder knows how to parse out ZFTP-encoded data to satisfy
+	// directory (dirent) and stat requests.
+	// It's subclassed to specify how to read raw data from a specific
+	// source (ZCachedFile: ZLCHandle, contiguous Zarfile: ZLCZCBHandle).
 public:
-	ZFTPDecoder(MallocFactory *mf, XaxVFSIfc *xvfs_for_stat, char *url_for_stat);
+	ZFTPDecoder(MallocFactory *mf, XaxVFSIfc *xvfs_for_stat, char *url_for_stat, TraceCollectorHandle* traceHandle);
 	~ZFTPDecoder();
 
 	virtual bool is_dir() = 0;
@@ -37,6 +42,7 @@ public:
 
 	virtual void read(
 		XfsErr *err, void *dst, size_t len, uint64_t offset);
+	virtual void trace_mmap(size_t len, uint64_t offset, bool fast);
 	virtual void xvfs_fstat64(
 		XfsErr *err, struct stat64 *buf);
 	virtual uint32_t get_dir_len(XfsErr *err);
@@ -63,4 +69,5 @@ private:
 	MallocFactory *mf;
 	XaxVFSIfc *xvfs_for_stat;
 	char *url_for_stat;
+	TraceCollectorHandle* traceHandle;
 };

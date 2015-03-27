@@ -179,7 +179,7 @@ void ZDB::lock()
 		if (rc==-1 && errno==ESRCH)
 		{
 			// he's not even there. We can just clean up his lock.
-			fprintf(stderr, "removing stale lock %s\n", lockfilename);
+//			fprintf(stderr, "removing stale lock %s\n", lockfilename);
 #ifdef _WIN32
 			rc = RemoveDirectory(lockfilename) ? 0 : 1;
 #else

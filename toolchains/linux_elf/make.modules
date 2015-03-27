@@ -42,6 +42,9 @@ CRYPTO_MODULE_OBJS=\
   sha2big.o \
   sha2small.o \
   vmac.o \
+  sha-openssl.o \
+	sha-openssl-asm.o \
+	sha-openssl-cpuid.o \
   \
   ByteStream.o \
   CryptoException.o \
@@ -96,44 +99,80 @@ KEYVAL_MODULE_OBJS=\
   KeyValClient.o \
   EncryptedKeyValClient.o \
 
-#ZFTP_OBJS=\
-#	ZCache.o \
-#	ZOrigin.o \
-#	malloc_factory_operator_new.o \
-#	ZLookupClient.o \
-#	ZLookupRequest.o \
-#	ZSyntheticFileRequest.o \
-#	ZFileRequest.o \
-#	ZCachedFile.o \
-#	ValidatedMerkleRecord.o \
-#	ZLCArgs.o \
-#	ZBlockCache.o \
-#	ZBlockCacheRecord.o \
-#	ZNameRecord.o \
-#	pure_virtual.o \
-#	zlc_util.o \
-#	FreshnessSeal.o \
-#	SocketFactory_Skinny.o \
-#	SocketFactory.o \
-#	tree_math.o \
-#	ZFileReplyFromServer.o \
-#	ZFileClient.o \
-#	ZCachedName.o \
-#	ErrorFileResult.o \
-#	InternalFileResult.o \
-#	ValidFileResult.o \
-#	ZFileServer.o \
-#	ZLookupServer.o \
-#	ZLCEmitXdt.o \
-#	ZWireFileRequest.o \
-#	ZLCTestHarness.o \
-#	ZFetch.o \
-#	reference_file.o \
-#	ZFastFetch.o \
-#	SendBufferFactory_Xnb.o \
-#	DataRange.o \
-#	OutboundRequest.o \
-#	RequestBuilder.o \
+ZFTP_MODULE=$(ZOOG_ROOT)/common/zftp_module/
+ZFTP_CORE_OBJS = \
+	DataRange.o \
+	ErrorFileResult.o \
+	FreshnessSeal.o \
+	InternalFileResult.o \
+	Buf.o \
+	MemBuf.o \
+	OutboundRequest.o \
+	RequestBuilder.o \
+	tree_math.o \
+	ValidatedMerkleRecord.o \
+	ValidatedZCB.o \
+	ValidFileResult.o \
+	ZBlockCache.o \
+	ZBlockCacheRecord.o \
+	ZCachedFile.o \
+	ZStats.o \
+	ZCachedName.o \
+	ZCache.o \
+	ZFileClient.o \
+	ZFileReplyFromServer.o \
+	ZFileRequest.o \
+	ZLCArgs.o \
+	zlc_util.o \
+	ZLookupClient.o \
+	ZLookupRequest.o \
+	ZNameRecord.o \
+	ZOrigin.o \
+	ZSyntheticFileRequest.o \
+	ZFTPRequestPacketInit.o \
+
+# server pieces that can compile inside zoog (zftp_zoog)
+ZFTP_PORTABLE_SERVER_OBJS=\
+	ZFileServer.o \
+	ZLookupServer.o \
+	ZWireFileRequest.o \
+	ZCompressionStub.o \
+
+ZFTP_SERVER_OBJS = \
+	$(ZFTP_PORTABLE_SERVER_OBJS) \
+	debug.o \
+	FileSystemView.o \
+	HandyDirRec.o \
+	reference_file.o \
+	SendBufferFactory_Memcpy.o \
+	ZAuthoritativeOrigin.o \
+	ZBlockDB.o \
+	ZDBCursor.o \
+	ZDBDatum.o \
+	ZDB.o \
+	ZFetch.o \
+	ZFileDB.o \
+	ZFSOrigin.o \
+	ZFSRDir.o \
+	ZFSRDir_Posix.o \
+	ZFSRDir_Union.o \
+	ZFSReader.o \
+	ZFSReference.o \
+	ZFSRFile.o \
+	ZFSRInode.o \
+	ZFSRStat.o \
+	ZFTPApp.o \
+	ZFTPIndexConfig.o \
+	ZLCEmitStdio.o \
+	ZLCTestHarness.o \
+	ZNameDB.o \
+	ZOriginFile.o \
+	ZRFOrigin.o \
+	ZStatOrigin.o \
+	ZCompressionIfc.o \
+	ZCompressionImpl.o \
+	ZCompressionZlibStream.o \
+	CompressedZCB.o \
 
 MONITOR_CRYPTO_MODULE=$(ZOOG_ROOT)/monitors/linux_common/crypto/
 MONITOR_CRYPTO_MODULE_OBJS=\

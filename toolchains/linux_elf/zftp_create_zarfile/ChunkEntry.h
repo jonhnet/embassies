@@ -28,11 +28,15 @@ private:
 	CatalogEntry *catalog_entry;
 
 public:
-	ChunkEntry(uint32_t offset, uint32_t len, bool precious, CatalogEntry *catalog_entry);
+	enum ChunkType { PRECIOUS, FAST };
+	ChunkEntry(uint32_t offset, uint32_t len, ChunkType chunk_type, CatalogEntry *catalog_entry);
 	~ChunkEntry();
 	const char* get_url();	// minor sort key, after size.
+	virtual void set_location(uint32_t offset);
 
 	ZF_Chdr* get_chdr();
 	virtual uint32_t get_size();
+	virtual const char* get_type();
 	virtual void emit(FILE *fp);
+	virtual void emit(WriterIfc* writer);
 };

@@ -44,11 +44,13 @@ elfmain(
 
 	ZLCEmitXdt ze(zdt, terse);
 
+#if 0
 	DropTest dt(zdt, zmf.mf, &xsn, &hardcoded_server);
 	dt.run();
 
 	EventTimeoutTest ett(&xsn, &ze);
 	ett.run();
+#endif
 
 	ThroughputTest tt(zdt, &xsn, &hardcoded_server);
 	tt.run();

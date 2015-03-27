@@ -4,7 +4,7 @@ bool AbstractSocket::sendto(UDPEndpoint *remote, void *buf, uint32_t buf_len)
 {
 	ZeroCopyBuf *zcb = zc_allocate(buf_len);
 	lite_memcpy(zcb->data(), buf, buf_len);
-	bool result = zc_send(remote, zcb);
+	bool result = zc_send(remote, zcb, zcb->len());
 	zc_release(zcb);
 	return result;
 }

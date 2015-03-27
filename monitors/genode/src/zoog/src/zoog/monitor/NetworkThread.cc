@@ -1,5 +1,7 @@
 #include <timer_session/connection.h>
 #include "NetworkThread.h"
+
+#include "LiteLib.h"
 #include "xax_network_utils.h"
 #include "standard_malloc_factory.h"
 
@@ -7,31 +9,48 @@ using namespace Genode;
 using namespace Net;
 using namespace ZoogMonitor;
 
-Packet_queue::Packet_queue()
-{
-	linked_list_init(&queue, standard_malloc_factory_init());
-}
-
-void Packet_queue::insert(Packet *packet)
-{
-	lock.lock();
-	linked_list_insert_tail(&queue, packet);
-//	semaphore.up();
-	lock.unlock();
-}
-
-Packet *Packet_queue::remove()
-{
-//	PDBG("down");
-//	semaphore.down();
-//	PDBG("done");
-	lock.lock();
-	Packet *result = (Packet *) linked_list_remove_head(&queue);
-	lock.unlock();
-	return result;
-}
-
 /* based on nic_bridge model */
+
+NetworkThread::NetworkThread(
+		Nic::Connection *_nic_session,
+		XIPifconfig *prototype_ifconfig,
+		DebugFlags *dbg_flags,
+		Timer::Connection *timer)
+	: _nic_session(_nic_session),
+	  _prototype_ifconfig(prototype_ifconfig),
+	  _dbg_flags(dbg_flags),
+	  timer(timer),
+	  _dbg_total(0),
+	  _dbg_next_mark(0),
+	  account_received_packets_accepted(0),
+	  account_received_packets_acknowledged(0),
+	  account_sent_packets_allocated(0),
+	  account_sent_packets_submitted(0)
+{
+#if 0
+	enum { PAYLOAD_SIZE = 2000 };
+	int i;
+	for (i=0; i<100; i++) {
+		PDBG("A %x", i);
+		Nic::Session::Tx::Source *source = _nic_session->tx();
+		size_t reply_eth_size = sizeof(Ethernet_frame) + PAYLOAD_SIZE;
+		Packet_descriptor packet = source->alloc_packet(reply_eth_size);
+		Ethernet_frame *reply_eth = new (source->packet_content(packet))
+			Ethernet_frame(reply_eth_size);
+		reply_eth->src(_nic_session->mac_address().addr);
+//		reply_eth->dst(_nic_session->mac_address().addr);
+		reply_eth->type(Ethernet_frame::ARP);
+		memset(&reply_eth[1], i, PAYLOAD_SIZE);
+		PDBG("B");
+		source->submit_packet(packet);
+		PDBG("C");
+		timer.msleep(500);
+		PDBG("D");
+	}
+#endif
+	MallocFactory *mf = standard_malloc_factory_init();
+	hash_table_init(&terminii_table, mf, NetworkTerminus::hash, NetworkTerminus::cmp);
+}
 
 void NetworkThread::next_packet(void** src, Genode::size_t *size) {
 	// NB I don't think we need to lock access to the _nic_session,
@@ -132,7 +151,7 @@ bool NetworkThread::handle_arp(Ethernet_frame *eth, size_t size)
 			arp->dst_ip(),
 			arp->src_ip());
 	} else {
-		if (arp->src_ip()==xip_to_genode_ipv4(_ifconfig->gateway))
+		if (arp->src_ip()==xip_to_genode_ipv4(_prototype_ifconfig->gateway))
 		{
 			gateway_mac_address = arp->src_mac();
 		}
@@ -140,6 +159,11 @@ bool NetworkThread::handle_arp(Ethernet_frame *eth, size_t size)
 	}
 
 	return true;
+}
+
+void NetworkThread::register_terminus(NetworkTerminus* terminus)
+{
+	hash_table_insert(&terminii_table, terminus);
 }
 
 void NetworkThread::send_packet(AllocatedBuffer *allocated_buffer)
@@ -228,7 +252,17 @@ void NetworkThread::dispatch_debug_request(char *dbg_request_str)
 	else if (strcmp(dbg_request_str, "core")==0)
 	{
 		PDBG("Invoking pal core dump");
-		_core_dump_invoke_signal_transmitter->submit();
+		uint32_t identifier = lite_atoi(args);
+		NetworkTerminus* terminus = findTerminus(identifier);
+		if (terminus==NULL)
+		{
+			PDBG("failed: no PAL with id %d\n", identifier);
+			listTerminii();
+		}
+		else
+		{
+			terminus->signal_core_dump();
+		}
 	}
 	else
 	{
@@ -267,10 +301,14 @@ void NetworkThread::handle_ipv4(Ethernet_frame *eth, size_t eth_sz)
 		packet->descriptor = _rx_packet;
 		packet->payload = eth->data();
 		packet->size = eth_sz - sizeof(Ethernet_frame);
-		packet_queue.insert(packet);
+
+		lite_assert(info.dest.version == ipv4);
+		uint32_t low_octet = (info.dest.xip_addr_un.xv4_addr >> 24)&0x0ff;
+		NetworkTerminus* terminus = findTerminus(low_octet);
+		terminus->enqueue_packet(packet);
 		_rx_packet = Packet_descriptor();	 // don't acknowledge this one yet, then
 		// Tell client that a packet's ready
-		_network_receive_signal_transmitter->submit();
+		terminus->notify_client();
 	}
 	lock.unlock();
 }
@@ -288,8 +326,8 @@ void NetworkThread::entry()
 		Arp_packet::REQUEST,
 		_nic_session->mac_address().addr,
 		Ethernet_frame::BROADCAST,
-		xip_to_genode_ipv4(_ifconfig->local_interface),
-		xip_to_genode_ipv4(_ifconfig->gateway));
+		xip_to_genode_ipv4(_prototype_ifconfig->local_interface),
+		xip_to_genode_ipv4(_prototype_ifconfig->gateway));
 	lock.unlock();
 
 	while (true)
@@ -336,54 +374,6 @@ void NetworkThread::entry()
 	}
 }
 
-NetworkThread::NetworkThread(
-		Nic::Connection *_nic_session,
-		XIPifconfig *ifconfig,
-		Signal_transmitter *network_receive_signal_transmitter,
-		Signal_transmitter *core_dump_invoke_signal_transmitter,
-		DebugFlags *dbg_flags,
-		Timer::Connection *timer)
-	: _nic_session(_nic_session),
-	  _ifconfig(ifconfig),
-	  _network_receive_signal_transmitter(network_receive_signal_transmitter),
-	  _core_dump_invoke_signal_transmitter(core_dump_invoke_signal_transmitter),
-	  _dbg_flags(dbg_flags),
-	  timer(timer),
-	  _dbg_total(0),
-	  _dbg_next_mark(0),
-	  account_received_packets_accepted(0),
-	  account_received_packets_acknowledged(0),
-	  account_sent_packets_allocated(0),
-	  account_sent_packets_submitted(0)
-{
-#if 0
-	enum { PAYLOAD_SIZE = 2000 };
-	int i;
-	for (i=0; i<100; i++) {
-		PDBG("A %x", i);
-		Nic::Session::Tx::Source *source = _nic_session->tx();
-		size_t reply_eth_size = sizeof(Ethernet_frame) + PAYLOAD_SIZE;
-		Packet_descriptor packet = source->alloc_packet(reply_eth_size);
-		Ethernet_frame *reply_eth = new (source->packet_content(packet))
-			Ethernet_frame(reply_eth_size);
-		reply_eth->src(_nic_session->mac_address().addr);
-//		reply_eth->dst(_nic_session->mac_address().addr);
-		reply_eth->type(Ethernet_frame::ARP);
-		memset(&reply_eth[1], i, PAYLOAD_SIZE);
-		PDBG("B");
-		source->submit_packet(packet);
-		PDBG("C");
-		timer.msleep(500);
-		PDBG("D");
-	}
-#endif
-}
-
-Packet *NetworkThread::receive()
-{
-	return packet_queue.remove();
-}
-
 void NetworkThread::acknowledge_last_packet()
 {
 	lock.lock();
@@ -410,3 +400,21 @@ void NetworkThread::release(Packet *packet)
 	delete packet;
 	lock.unlock();
 }
+
+NetworkTerminus* NetworkThread::findTerminus(uint32_t identifier)
+{
+	NetworkTerminus key(identifier);
+	return (NetworkTerminus*) hash_table_lookup(&terminii_table, &key);
+}
+
+void NetworkThread::list_one(void* user, void* a)
+{
+	NetworkTerminus* terminus = (NetworkTerminus*) a;
+	PDBG("PAL at identifier %d\n", terminus->get_identifier());
+}
+
+void NetworkThread::listTerminii()
+{
+	hash_table_visit_every(&terminii_table, list_one, NULL);
+}
+

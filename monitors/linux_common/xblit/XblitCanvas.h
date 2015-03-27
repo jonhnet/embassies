@@ -76,13 +76,14 @@ public:
 	virtual ~XblitCanvas();
 	virtual ZCanvasID get_canvas_id() { return canvas_id; }
 	void update_image(ZRectangle *wr);
+	void set_window_label(const char *window_label);
 	void reconfigure(ZRectangle *wr);
 
 	// Xblit callins
 	void window_mapped();
 	void deliver_ui_event(ZoogUIEvent *zuie);
 	void x_update_image(ZRectangle *wr);
-	void set_window_label(const char *window_label);
+	void x_set_window_label(const char *window_label);
 
 	// LabelWindow callin
 	void x_get_root_location(ZRectangle *out_rect);
@@ -97,6 +98,7 @@ public:
 	friend class DestroyWork;
 	friend class SetupWork;
 	friend class UpdateWork;
+	friend class SetWindowLabelWork;
 };
 
 

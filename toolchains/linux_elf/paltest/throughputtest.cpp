@@ -5,14 +5,9 @@
 #include "zoog_malloc_factory.h"
 #include "xax_skinny_network.h"
 #include "SyncFactory_Zutex.h"
+#include "throughput_test_header.h"
 
 #define local_assert(x)	{ if (!(x)) { msg(#x); } lite_assert(x); }
-
-// copied from unit_tests/throughput_test. todo common .h
-typedef struct {
-	uint32_t number;
-	uint32_t total;
-} Signal;
 
 ThroughputTest::ThroughputTest(
 		ZoogDispatchTable_v1 *zdt,
@@ -49,9 +44,8 @@ void ThroughputTest::setup()
 
 void ThroughputTest::ping_throughput_server()
 {
-	// unholy layering violation: we want to send without releasing znb, and
-	// that interface isn't exposed from XaxSkinnySocket just yet.
-	(zdt->zoog_send_net_buffer)(request_znb, false);
+	// send without release
+	xax_skinny_socket_send(&skinny_socket, request_znb, false);
 }
 
 void ThroughputTest::run()

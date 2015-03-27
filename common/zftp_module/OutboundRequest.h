@@ -31,6 +31,7 @@ private:
 public:
 	OutboundRequest(
 		MallocFactory *mf,
+		CompressionContext compression_context,
 		const hash_t *file_hash,
 		const char *url_hint,
 		uint32_t num_tree_locations,
