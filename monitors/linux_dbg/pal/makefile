@@ -28,39 +28,6 @@ COMMON_UTILS_OBJS=\
 	ambient_malloc.o \
 	TunIDAllocator.o \
 
-CRYPTO_MODULE=$(ZOOG_ROOT)/common/crypto
-CRYPTO_MODULE_OBJS=\
-	bignum.o \
-	rijndael.o \
-	rsa.o \
-	sha1.o \
-	sha2big.o \
-	sha2small.o \
-	vmac.o \
-	CryptoException.o \
-	DomainName.o \
-	RandomSupply.o \
-	ZBinaryRecord.o \
-	ZCert.o \
-	ZCertChain.o \
-	ZDelegationRecord.o \
-	ZKey.o \
-	ZKeyLinkRecord.o \
-	ZKeyPair.o \
-	ZPrivKey.o \
-	ZPubKey.o \
-	ZPubKeyRecord.o \
-	ZRecord.o \
-	ZSigRecord.o \
-	crypto.o \
-	ByteStream.o \
-	time_posix.o \
-	ZSymKey.o \
-	PrfKey.o \
-	MacKey.o \
-	SymEncKey.o \
-	KeyDerivationKey.o \
-
 # TODO probably should promote these files up into COMMON_UTILS
 ELF_COMMON_MODULE=$(ZOOG_ROOT)/toolchains/linux_elf/common/
 ELF_COMMON_OBJS=\
