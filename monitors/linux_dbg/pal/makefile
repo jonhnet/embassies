@@ -10,6 +10,8 @@ TARGETS=xax_port_pal
 
 # zutexercise
 
+include $(ZOOG_ROOT)/toolchains/linux_elf/make.modules
+
 COMMON_UTILS_MODULE=$(ZOOG_ROOT)/common/utils
 COMMON_UTILS_OBJS=\
 	hash_table.o \
@@ -26,8 +28,8 @@ COMMON_UTILS_OBJS=\
 	ambient_malloc.o \
 	TunIDAllocator.o \
 
-COMMON_CRYPTO_MODULE=$(ZOOG_ROOT)/common/crypto
-COMMON_CRYPTO_OBJS=\
+CRYPTO_MODULE=$(ZOOG_ROOT)/common/crypto
+CRYPTO_MODULE_OBJS=\
 	bignum.o \
 	rijndael.o \
 	rsa.o \
@@ -76,14 +78,14 @@ MONITOR_LINUX_DBG_COMMON_MODULE=$(ZOOG_ROOT)/monitors/linux_dbg/common
 
 MODULES=\
 	$(COMMON_UTILS_MODULE) \
-	$(COMMON_CRYPTO_MODULE) \
+	$(CRYPTO_MODULE) \
 	$(ELF_COMMON_MODULE) \
 	$(MONITOR_COMMON_MODULE) \
 	$(MONITOR_LINUX_DBG_COMMON_MODULE) \
 
 MODULE_OBJS=\
 	$(COMMON_UTILS_OBJS) \
-	$(COMMON_CRYPTO_OBJS) \
+	$(CRYPTO_MODULE_OBJS) \
 	$(ELF_COMMON_OBJS) \
 	$(MONITOR_COMMON_OBJS) \
 
