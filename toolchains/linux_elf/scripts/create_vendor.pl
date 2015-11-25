@@ -2,7 +2,9 @@
 # Create the keys, certs, and cert chains for a vendor, specified by DNS name
 
 $vendor_name = $ARGV[0]; 
-$base = $ENV{"HOME"} . "/zoog/toolchains/linux_elf/crypto/";
+use Cwd 'abs_path';
+use File::Basename;
+$base = dirname(abs_path($0)) . "/../../../toolchains/linux_elf/crypto/";
 
 @names = split("\\.", $vendor_name);
 @names = reverse @names;
@@ -12,6 +14,15 @@ $parent_key = "$base/keys/root.keys";
 $parent_certs = "";
 
 $vendor_name = "";
+
+sub safe_system {
+	#print "safe_system: $cmd\n";
+	$rc = system(@_);
+	if ($rc != 0) {
+		print "Cmd failed:\n$cmd\n";
+		exit -1;
+	}
+}
 
 foreach $name (@names) {
 	if ($vendor_name eq "") {
@@ -24,11 +35,11 @@ foreach $name (@names) {
 	$certfile = "$base/certs/$vendor_name.cert";
 	$chainfile = "$base/certs/$vendor_name.chain";
 
+	print "keyfile $keyfile\n";
 	unless (-e $keyfile) {
 		$cmd = "$base/build/crypto_util --genkeys $keyfile --name $vendor_name";
 		print "Creating key for: $vendor_name\n";
-		print "$cmd\n";
-		system($cmd);
+		safe_system($cmd);
 	} 
 
 	unless (-e $certfile) {
@@ -40,14 +51,14 @@ foreach $name (@names) {
 		$cmd .= " --expires " . ($thedate + 31536000);
 		print "Creating cert for: $vendor_name\n";
 		#print "$cmd\n";
-		system($cmd);
+		safe_system($cmd);
 	}
 
 	unless (-e $chainfile) {
 		$cmd = "$base/build/crypto_util --genchain $chainfile $parent_certs $certfile ";
 		print "Creating chain for: $vendor_name\n";
 		#print "$cmd\n";
-		system($cmd);
+		safe_system($cmd);
 	}
 
 	$parent_key = $keyfile;
