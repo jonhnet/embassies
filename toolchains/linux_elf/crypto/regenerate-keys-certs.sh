@@ -1,6 +1,6 @@
 #!/bin/bash
 
-NAMES="com gnucash.org graphics.net maps.net marble.maps.net net office.org org raster.graphics.net results.search.com retailer.com search.com spreadsheet.office.org vector.graphics.net vendor-a vendor-b widgets.retailer.com wordprocessor.office.org zftp-zoog"
+NAMES="com gnucash.org graphics.net maps.net marble.maps.net net office.org org raster.graphics.net results.search.com retailer.com search.com spreadsheet.office.org vector.graphics.net vendor-a vendor-b widgets.retailer.com wordprocessor.office.org zftp-zoog craigslist ebay microsoft reddit craigslist-warm ebay-warm microsoft-warm reddit-warm cpuid-test"
 
 # Rebuild the root
 ./build/crypto_util --genkeys ./keys/root.keys --name " "
