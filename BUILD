@@ -1,3 +1,6 @@
+//////////////////////////////////////////////////////////////////////////////
+// VM setup
+
 Use virt-manager to create a VM configured for Linux/Debian Squeeze.
 
 Attach iso
@@ -6,12 +9,21 @@ from
   https://www.debian.org/releases/squeeze/debian-installer/
 to the VM, and start it up to install squeeze to the VM.
 
-Inside the vm:
+//////////////////////////////////////////////////////////////////////////////
+// Inside the vm:
 
 Put user account in sudoers.
 
-sudo apt-get install vim-gnome git curl make dpkg-dev
+sudo apt-get install vim-gnome git curl make dpkg-dev xorg-dev libpcap-dev
 
 git clone https://git01.codeplex.com/forks/howell/fixbuild embassies-fixbuild
 cd embassies-fixbuild
-make
+
+# build the root certs
+(cd common/crypto-patched && make)
+(cd toolchains/linux_elf/crypto && make build/crypto_util && ./regenerate-keys-certs.sh)
+(cd monitors && make)
+(cd toolchains/linux_elf && make)
+
+TODO: sha-openssl* need to be modified to be extracted from some
+	downloaded distro.
