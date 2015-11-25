@@ -41,10 +41,13 @@ TARGETS=\
 	elf_loader.reddit_warm.signed \
 	elf_loader.cpuid_test.signed \
 
+# TODO this makefile is old, and should inherit most of these deps from ../make.modules
+# instead of declaring them explicitly here.
+
 COMMON_UTILS_MODULE=$(ZOOG_ROOT)/common/utils/
 ELF_COMMON_MODULE=$(ZOOG_ROOT)/toolchains/linux_elf/common/
 ELFOBJ_MODULE=$(ZOOG_ROOT)/toolchains/linux_elf/elfobj/
-ZFTP_MODULE=$(ZOOG_ROOT)/common/zftp_module
+#ZFTP_MODULE=$(ZOOG_ROOT)/common/zftp_module
 BOOTBLOCKS_MODULE=$(ZOOG_ROOT)/toolchains/linux_elf/bootblocks/
 
 COMMON_UTILS_OBJS=\
@@ -59,6 +62,8 @@ COMMON_UTILS_OBJS=\
 	SocketFactory.o \
 	malloc_trace.o \
 	ambient_malloc.o \
+	malloc_factory_operator_new.o \
+	ZLCEmitXdt.o \
 
 ELF_COMMON_OBJS=\
 	ElfArgs.o \
@@ -88,6 +93,7 @@ ELF_COMMON_OBJS=\
 	LegacyPF.o \
 	XSNReceiveAccounting.o \
 	ZStats.o \
+	FastFetchHelper.o \
 
 ELFOBJ_OBJS=\
 	elfobj.o \
@@ -98,38 +104,42 @@ BOOTBLOCKS_OBJS=\
 	relocate_this.o \
 	dummy_main.o \
 
-ZFTP_OBJS=\
-	ZCache.o \
-	ZOrigin.o \
-	malloc_factory_operator_new.o \
-	ZLookupClient.o \
-	ZLookupRequest.o \
-	ZSyntheticFileRequest.o \
-	ZFileRequest.o \
-	ZCachedFile.o \
-	ValidatedMerkleRecord.o \
-	ZLCArgs.o \
-	ZBlockCache.o \
-	ZBlockCacheRecord.o \
-	ZNameRecord.o \
-	zlc_util.o \
-	FreshnessSeal.o \
-	tree_math.o \
-	ZFileReplyFromServer.o \
-	ZFileClient.o \
-	ZCachedName.o \
-	ErrorFileResult.o \
-	InternalFileResult.o \
-	ValidFileResult.o \
-	ZLCEmitXdt.o \
+ZFTP_LOCAL_OBJS=\
+	ChunkDecoder.o \
 	SendBufferFactory_Xnb.o \
 	ZFastFetch.o \
-	DataRange.o \
-	OutboundRequest.o \
-	RequestBuilder.o \
-	ChunkDecoder.o \
-	MemBuf.o \
-	ValidatedZCB.o \
+	ZCompressionStub.o \
+
+#ZFTP_OBJS=\
+#	ZCache.o \
+#	ZOrigin.o \
+#	malloc_factory_operator_new.o \
+#	ZLookupClient.o \
+#	ZLookupRequest.o \
+#	ZSyntheticFileRequest.o \
+#	ZFileRequest.o \
+#	ZCachedFile.o \
+#	ValidatedMerkleRecord.o \
+#	ZLCArgs.o \
+#	ZBlockCache.o \
+#	ZBlockCacheRecord.o \
+#	ZNameRecord.o \
+#	zlc_util.o \
+#	FreshnessSeal.o \
+#	tree_math.o \
+#	ZFileReplyFromServer.o \
+#	ZFileClient.o \
+#	ZCachedName.o \
+#	ErrorFileResult.o \
+#	InternalFileResult.o \
+#	ValidFileResult.o \
+#	ZLCEmitXdt.o \
+#	ZFastFetch.o \
+#	DataRange.o \
+#	OutboundRequest.o \
+#	RequestBuilder.o \
+#	MemBuf.o \
+#	ValidatedZCB.o \
 
 ########## Include more modules
 
@@ -154,7 +164,8 @@ MODULE_OBJS=\
 	$(ELFOBJ_OBJS) \
 	$(COMMON_UTILS_OBJS) \
 	$(ELF_COMMON_OBJS) \
-	$(ZFTP_OBJS) \
+	$(ZFTP_CORE_OBJS) \
+	$(ZFTP_LOCAL_OBJS) \
 	$(BOOTBLOCKS_OBJS) \
 	$(KEYVAL_MODULE_OBJS) \
 
@@ -220,6 +231,7 @@ SRCS=\
 	perf_measure.cpp \
 	exception_test.cpp \
 	pthreads_dummies.cpp \
+	TraceCollector.cpp \
 
 #	discovery_client.c \
 
