@@ -10,6 +10,8 @@ TARGETS=zoog_kvm_pal
 
 PREREQUISITE_DIRS=
 
+include $(ZOOG_ROOT)/toolchains/linux_elf/make.modules
+
 COMMON_UTILS_MODULE=$(ZOOG_ROOT)/common/utils
 COMMON_UTILS_MODULE_OBJS=\
 	LiteLib.o \
@@ -91,7 +93,6 @@ ADJ_LINKER_SCRIPT=\
 ########## Include
 
 include ../make.in
-include $(ZOOG_ROOT)/toolchains/linux_elf/make.modules
 
 ########## Rules
 

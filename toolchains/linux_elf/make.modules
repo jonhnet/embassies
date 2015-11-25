@@ -69,6 +69,8 @@ CRYPTO_MODULE_OBJS=\
 	SymEncKey.o \
 	KeyDerivationKey.o \
 
+CRYPTO_TIME_POSIX_OBJS=\
+	time_posix.o \
 
 #ELF_COMMON_OBJS=\
 #	pure_virtual.o \
