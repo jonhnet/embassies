@@ -41,6 +41,7 @@ ELF_COMMON_OBJS=\
 	sockaddr_util.o \
 	ThreadFactory_Pthreads.o \
 	ZeroCopyBuf_Memcpy.o \
+	ZeroCopyView.o \
 
 ZFTP_MODULE=$(ZOOG_ROOT)/common/zftp_module/
 ZFTP_OBJS=\
@@ -103,6 +104,11 @@ ZFTP_OBJS=\
 	ZFSRDir_Union.o \
 	MemBuf.o \
 	ValidatedZCB.o \
+	Buf.o \
+	ZFTPRequestPacketInit.o \
+	ZCompressionImpl.o \
+	CompressedZCB.o \
+	ZCompressionZlibStream.o \
 
 MODULES=$(COMMON_UTILS_MODULE) $(ELF_COMMON_MODULE) $(ZFTP_MODULE) $(CRYPTO_MODULE)
 MODULE_OBJS=$(COMMON_UTILS_OBJS) $(ELF_COMMON_OBJS) $(ZFTP_OBJS) $(CRYPTO_MODULE_OBJS)
@@ -133,6 +139,7 @@ CFLAGS=\
 LIBFLAGS=\
 	-lpthread \
 	-ldb \
+	-lz \
 
 ########## Include
 
