@@ -98,6 +98,9 @@ ZFTP_MODULE_OBJS=\
 	ZStats.o \
 	MemBuf.o \
 	ValidatedZCB.o \
+	Buf.o \
+	ZFTPRequestPacketInit.o \
+	ZCompressionStub.o \
 
 # elfobj stuff needed by relocate_this
 ELFOBJ_MODULE=$(ZOOG_ROOT)/toolchains/linux_elf/elfobj/
