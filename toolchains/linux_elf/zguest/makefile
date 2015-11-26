@@ -83,7 +83,7 @@ INCS=\
 	-I$(LWIP_LIB_DIR)/inc \
 	-I$(LWIP_LIB_DIR)/build/lwip_release_dir/lwip/src/include \
 	-I$(LWIP_LIB_DIR)/build/lwip_release_dir/lwip/src/include/ipv4 \
-	-I$(LWIP_LIB_DIR)/build/lwip_release_dir/contrib-1.4.0.rc2/ports/unix/include \
+	-I$(LWIP_LIB_DIR)/build/lwip_release_dir/contrib-1.4.0/ports/unix/include \
 	-I$(LWIP_LIB_DIR)/build/lwip_build_dir \
 	-I.\
 
