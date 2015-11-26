@@ -51,15 +51,31 @@ CZ_SRCS=\
 	MmapDecoder.cpp \
 	CatalogElfReaderWrapper.cpp \
 	ZFSElfReader.cpp \
+	TraceDecoder.cpp \
+	GreedyPlacement.cpp \
+	StablePlacement.cpp \
+	HashWriter.cpp \
+	StdioWriter.cpp \
+	FileScanner.cpp \
+	ChunkEntry.cpp \
+	PosixChunkDecoder.cpp \
 
 ZT_SRCS=\
 	zarfile_tool.cpp \
 	ZTArgs.cpp \
 	PosixChunkDecoder.cpp \
+	ChunkEntry.cpp \
+	StdioWriter.cpp \
+	FileScanner.cpp \
 
 DT_SRCS=\
 	diff_tool.cpp \
 	DTArgs.cpp \
+	ChunkEntry.cpp \
+	StdioWriter.cpp \
+	Blaminator.cpp \
+	FileScanner.cpp \
+	PosixChunkDecoder.cpp \
 
 COMMON_UTILS_MODULE=$(ZOOG_ROOT)/common/utils
 COMMON_UTILS_OBJS=\
@@ -69,6 +85,8 @@ COMMON_UTILS_OBJS=\
 	hash_table.o \
 	Hashable.o \
 	malloc_factory.o \
+	CoalescingAllocator.o \
+	RangeUnion.o \
 
 ELFOBJ_MODULE=$(ZOOG_ROOT)/toolchains/linux_elf/elfobj/
 ELFOBJ_OBJS=\
@@ -99,6 +117,9 @@ ZFTP_OBJS=\
 	FileSystemView.o \
 	HandyDirRec.o \
 	ChunkDecoder.o \
+	DataRange.o \
+	ChunkBySize.o \
+	zlc_util.o \
 
 # subset the crypto module
 CRYPTO_MODULE_OBJS=\
@@ -108,6 +129,9 @@ CRYPTO_MODULE_OBJS=\
   sha2small.o \
   vmac.o \
   crypto.o \
+  sha-openssl.o \
+  sha-openssl-asm.o \
+  sha-openssl-cpuid.o \
 
 MODULES=$(COMMON_UTILS_MODULE) $(ELF_COMMON_MODULE) $(ZFTP_MODULE) $(ELFOBJ_MODULE) $(CRYPTO_MODULE)
 MODULE_OBJS=$(COMMON_UTILS_OBJS) $(ELF_COMMON_OBJS) $(ZFTP_OBJS) $(ELFOBJ_OBJS) $(CRYPTO_MODULE_OBJS)

@@ -3,6 +3,7 @@
 #include <string.h>
 #include "MmapDecoder.h"
 #include "standard_malloc_factory.h"
+#include "LiteAssert.h"
 
 //////////////////////////////////////////////////////////////////////////////
 
