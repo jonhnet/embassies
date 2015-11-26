@@ -1,4 +1,4 @@
---- build/lwip_release_dir/contrib-1.4.0.rc2/ports/unix/proj/lib/Makefile	2011-02-03 04:51:26.000000000 -0800
+--- build/lwip_release_dir/contrib-1.4.0/ports/unix/proj/lib/Makefile	2011-02-03 04:51:26.000000000 -0800
 +++ build/lwip_build_dir/Makefile	2012-04-04 21:00:19.071990735 -0700
 @@ -29,7 +29,14 @@
  # Author: Adam Dunkels <adam@sics.se>
@@ -12,7 +12,7 @@
 +	-I../../../../../common/ifc \
 +	-I../../../../../common/utils \
 +
-+CONTRIBDIR=../lwip_release_dir/contrib-1.4.0.rc2
++CONTRIBDIR=../lwip_release_dir/contrib-1.4.0
  LWIPARCH=$(CONTRIBDIR)/ports/unix
  
  #Set this to where you have the lwip core module checked out from CVS

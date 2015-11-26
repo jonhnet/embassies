@@ -22,7 +22,7 @@ CFLAGS=\
 LWIP_DOWNLOAD_SITE=http://download.savannah.gnu.org/releases/lwip/
 #LWIP_DOWNLOAD_SITE=http://ftp.twaren.net/Unix/NonGNU/lwip/
 #LWIP_DOWNLOAD_SITE=http://nongnu.askapache.com/lwip/
-LWIP_VERSION=-1.4.0.rc2
+LWIP_VERSION=-1.4.0
 EXTERNAL_CODE=$(ZOOG_ROOT)/external-code
 FETCH=$(ZOOG_ROOT)/toolchains/linux_elf/scripts/fetch-code.py
 
@@ -33,7 +33,7 @@ include ../make.in
 ########## Rules
 
 new_patch:
-	diff -u $(BUILD)/lwip_release_dir/contrib-1.4.0.rc2/ports/unix/proj/lib/Makefile $(BUILD)/lwip_build_dir/Makefile > new_patch || true
+	diff -u $(BUILD)/lwip_release_dir/contrib$(LWIP_VERSION)/ports/unix/proj/lib/Makefile $(BUILD)/lwip_build_dir/Makefile > new_patch || true
 
 $(BUILD)/lwip_release_dir/unpack.stamp:
 	mkdir -p build/lwip_release_dir
@@ -50,16 +50,16 @@ $(BUILD)/lwip_build_dir/patch.stamp: $(BUILD)/lwip_release_dir/unpack.stamp
 	rm -rf $(dir $@)
 	mkdir -p $(dir $@)
 	#
-	cp $(BUILD)/lwip_release_dir/contrib-1.4.0.rc2/ports/unix/proj/lib/Makefile $(dir $@)
+	cp $(BUILD)/lwip_release_dir/contrib$(LWIP_VERSION)/ports/unix/proj/lib/Makefile $(dir $@)
 	patch $(dir $@)/Makefile contrib_unix_makefile.patch
 	#
-	cp $(BUILD)/lwip_release_dir/contrib-1.4.0.rc2/ports/unix/sys_arch.c $(dir $@)/unix_arch.c
+	cp $(BUILD)/lwip_release_dir/contrib$(LWIP_VERSION)/ports/unix/sys_arch.c $(dir $@)/unix_arch.c
 	patch $(dir $@)/unix_arch.c unix_arch.c.patch
 	#
-	cp $(BUILD)/lwip_release_dir/contrib-1.4.0.rc2/ports/unix/proj/unixsim/lwipopts.h $(dir $@)/lwipopts.h
+	cp $(BUILD)/lwip_release_dir/contrib$(LWIP_VERSION)/ports/unix/proj/unixsim/lwipopts.h $(dir $@)/lwipopts.h
 	patch $(dir $@)/lwipopts.h lwipopts.h.patch
 	#
-	cp $(BUILD)/lwip_release_dir/lwip-1.4.0.rc2/src/api/sockets.c $(dir $@)/sockets.c
+	cp $(BUILD)/lwip_release_dir/lwip$(LWIP_VERSION)/src/api/sockets.c $(dir $@)/sockets.c
 	patch $(dir $@)/sockets.c sockets.c.patch
 	#
 	touch $@
