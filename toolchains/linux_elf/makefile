@@ -1,4 +1,9 @@
-PREREQUISITE_DIRS=install_deps apps/eglibc ../../common/crypto-patched elf_loader zguest paltest unit_tests zftp_backend zftp_zoog zftp_create_zarfile zoog_tests navtest tabman keyval_zoog leanloader measure_posix apps/old-libpng
+PREREQUISITE_DIRS=install_deps apps/eglibc ../../common/crypto-patched elf_loader zguest paltest unit_tests zftp_backend zftp_zoog zftp_create_zarfile zoog_tests navtest tabman keyval_zoog leanloader measure_posix
+
+# jonh deprecates apps/old-libpng. We used it for a perf test, to demonstrate the cost
+# of deploying a fix to a library with a security hole. But, because this library has
+# a security hole, it's getting harder and harder to find on the Internet, remarkably.
+# apps/old-libpng
 
 # s3fs -- build mysteriously broke.
 

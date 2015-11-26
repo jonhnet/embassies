@@ -5,8 +5,11 @@ ZOOG_ROOT=../../..
 include ../make.arch
 include ../make.modules
 
-OLD_LIBPNG_DIR=$(ZOOG_ROOT)/toolchains/linux_elf/apps/old-libpng/
-PREREQUISITE_DIRS=$(OLD_LIBPNG_DIR)
+# jonh deprecates apps/old-libpng. We used it for a perf test, to demonstrate the cost
+# of deploying a fix to a library with a security hole. But, because this library has
+# a security hole, it's getting harder and harder to find on the Internet, remarkably.
+# OLD_LIBPNG_DIR=$(ZOOG_ROOT)/toolchains/linux_elf/apps/old-libpng/
+# PREREQUISITE_DIRS=$(OLD_LIBPNG_DIR)
 
 TARGETS=\
 	zftp_create_zarfile \
@@ -158,9 +161,9 @@ ICON_OVERLAY=--overlay ../apps/midori/icon-prune/build/overlay
 $(BUILD)/%.zarfile: $(BUILD)/zftp_create_zarfile %.paths.$(HOSTNAME)
 	$< --log $(filter-out %zftp_create_zarfile,$^) --zar $@ --include-elf-syms true --dep-file $@.dep $(ICON_OVERLAY) $(RESOLV_CONF_OVERLAY)
 
-OLD_LIBPNG_OVERLAY=--overlay $(OLD_LIBPNG_DIR)/build/overlay
-$(BUILD)/%.tweaked-zarfile: $(BUILD)/zftp_create_zarfile %.paths.$(HOSTNAME)
-	$< --log $(filter-out %zftp_create_zarfile,$^) --zar $@ --include-elf-syms true --dep-file $@.dep $(OLD_LIBPNG_OVERLAY) $(ICON_OVERLAY) $(RESOLV_CONF_OVERLAY)
+#OLD_LIBPNG_OVERLAY=--overlay $(OLD_LIBPNG_DIR)/build/overlay
+#$(BUILD)/%.tweaked-zarfile: $(BUILD)/zftp_create_zarfile %.paths.$(HOSTNAME)
+#	$< --log $(filter-out %zftp_create_zarfile,$^) --zar $@ --include-elf-syms true --dep-file $@.dep $(OLD_LIBPNG_OVERLAY) $(ICON_OVERLAY) $(RESOLV_CONF_OVERLAY)
 
 $(BUILD)/zarfile_tool: $(ZT_OBJS)
 	$(CXX) $(LIBFLAGS) $^ -o $@
