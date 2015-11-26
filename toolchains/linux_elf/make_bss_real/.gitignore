@@ -1,0 +1,3 @@
+LiteLib.o
+elf_flat_reader.o
+elfobj.o
