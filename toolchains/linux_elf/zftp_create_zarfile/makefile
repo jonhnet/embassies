@@ -15,7 +15,11 @@ TARGETS=\
 	zftp_create_zarfile \
 	zarfile_tool \
 	diff_tool \
-	midori.tweaked-zarfile \
+
+# TODO ZARFILE_TARGETS temporarily removed from TARGETS because we don't have the
+# prerequisites built, the deps for the prerequisites specified, or even a decent
+# error message when the zarfile builder falls apart.
+ZARFILE_TARGETS=\
 	midori.zarfile \
 	xclock.zarfile \
 	xeyes.zarfile \
@@ -25,12 +29,15 @@ TARGETS=\
 	marble.zarfile \
 	zhyperoid.zarfile \
 	midori_reddit.zarfile \
-	midori_reddit.tweaked-zarfile \
 	midori_ebay.zarfile \
-	midori_ebay.tweaked-zarfile \
 	midori_microsoft.zarfile \
-	midori_microsoft.tweaked-zarfile \
 	midori_craigslist.zarfile \
+
+DEPRECATED_OLD_LIBPNG_TWEAKED_ZARFILES=\
+	midori.tweaked-zarfile \
+	midori_reddit.tweaked-zarfile \
+	midori_ebay.tweaked-zarfile \
+	midori_microsoft.tweaked-zarfile \
 	midori_craigslist.tweaked-zarfile \
 
 DEP_SRCS=$(wildcard *.c *.cpp)

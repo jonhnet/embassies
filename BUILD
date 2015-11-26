@@ -27,3 +27,5 @@ cd embassies-fixbuild
 
 TODO: sha-openssl* need to be modified to be extracted from some
 	downloaded distro.
+TODO: reenable zarfile creation in zftp_create_zarfile (or move to a neighboring directory
+	to get deps right).
