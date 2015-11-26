@@ -1,4 +1,4 @@
-PREREQUISITE_DIRS=install_deps apps/eglibc ../../common/crypto-patched elf_loader zguest scripts paltest unit_tests zftp_backend zftp_zoog zftp_create_zarfile zoog_tests navtest tabman keyval_zoog leanloader measure_posix apps/old-libpng
+PREREQUISITE_DIRS=install_deps apps/eglibc ../../common/crypto-patched elf_loader zguest paltest unit_tests zftp_backend zftp_zoog zftp_create_zarfile zoog_tests navtest tabman keyval_zoog leanloader measure_posix apps/old-libpng
 
 # s3fs -- build mysteriously broke.
 
