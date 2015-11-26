@@ -14,7 +14,7 @@ to the VM, and start it up to install squeeze to the VM.
 
 Put user account in sudoers.
 
-sudo apt-get install vim-gnome git curl make dpkg-dev xorg-dev libpcap-dev
+sudo apt-get install vim-gnome git curl make dpkg-dev xorg-dev libpcap-dev libpng12-dev libgtk2.0-dev
 
 git clone https://git01.codeplex.com/forks/howell/fixbuild embassies-fixbuild
 cd embassies-fixbuild
