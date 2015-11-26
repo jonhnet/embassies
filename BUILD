@@ -24,6 +24,7 @@ cd embassies-fixbuild
 (cd toolchains/linux_elf/crypto && make build/crypto_util && ./regenerate-keys-certs.sh)
 (cd monitors && make)
 (cd toolchains/linux_elf && make)
+(cd toolchains/apps/abiword && make)
 
 TODO: sha-openssl* need to be modified to be extracted from some
 	downloaded distro.
