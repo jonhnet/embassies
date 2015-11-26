@@ -104,6 +104,9 @@ ZFTP_OBJS=\
 	RequestBuilder.o \
 	ValidatedZCB.o \
 	MemBuf.o \
+	Buf.o \
+	ZFTPRequestPacketInit.o \
+	ZCompressionStub.o \
 
 ########## Include more modules
 
