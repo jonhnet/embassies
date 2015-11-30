@@ -34,6 +34,9 @@ make
 ########################################
 # build some apps
 
+# build embassies-ified xvnc, which all the graphical apps depend upon
+(cdtoolchains/linux_elf/apps/xvnc && make) 
+
 # Intsall Linux versions of the apps we're going to build Embassies versions
 # of, so that the shared libraries and data files for each are available
 # to be served by zftp-backend to the Embassies client binary.

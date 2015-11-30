@@ -16,7 +16,7 @@
  
 -DIR_CPPFLAGS = -I$(top_srcdir) @VSNPRINTF_DEFINE@
 +include Makefile.zoog
-+DIR_CPPFLAGS = -I$(top_srcdir) -I$(ZOOG_ROOT)/common/utils/ -I$(ZOOG_ROOT)/common/ifc/ -I$(ZOOG_ROOT)/common/crypto/ -I$(ZOOG_ROOT)/toolchains/linux_elf/common @VSNPRINTF_DEFINE@
++DIR_CPPFLAGS = -I$(top_srcdir) -I$(ZOOG_ROOT)/common/utils/ -I$(ZOOG_ROOT)/common/ifc/ -I$(ZOOG_ROOT)/common/crypto-patched/patched/ -I$(ZOOG_ROOT)/common/crypto/ -I$(ZOOG_ROOT)/toolchains/linux_elf/common @VSNPRINTF_DEFINE@
  
  library = librfb.a
  
