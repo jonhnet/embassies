@@ -38,12 +38,12 @@ make
 # to be served by zftp-backend to the Embassies client binary.
 sudo apt-get install abiword gimp inkscape gnumeric midori gnucash
 
-(cd toolchains/apps/abiword && make)
-(cd toolchains/apps/gimp && make)
-(cd toolchains/apps/inkscape && make)
-(cd toolchains/apps/gnumeric && make)
-(cd toolchains/apps/midory && make)
-(cd toolchains/apps/gnucash && make)
+(cd toolchains/linux_elf/apps/abiword && make)
+(cd toolchains/linux_elf/apps/gimp && make)
+(cd toolchains/linux_elf/apps/inkscape && make)
+(cd toolchains/linux_elf/apps/gnumeric && make)
+(cd toolchains/linux_elf/apps/midory && make)
+(cd toolchains/linux_elf/apps/gnucash && make)
 
 TODO: sha-openssl* need to be modified to be extracted from some
 	downloaded distro.
