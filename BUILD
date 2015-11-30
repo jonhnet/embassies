@@ -31,21 +31,40 @@ sudo true
 # the terminal. :v)
 make
 
+########################################
 # build some apps
 
 # Intsall Linux versions of the apps we're going to build Embassies versions
 # of, so that the shared libraries and data files for each are available
 # to be served by zftp-backend to the Embassies client binary.
-sudo apt-get install abiword gimp inkscape gnumeric midori gnucash
-
+sudo apt-get install abiword
 (cd toolchains/linux_elf/apps/abiword && make)
+
+# more app examples:
+sudo apt-get install gimp inkscape gnumeric midori gnucash
 (cd toolchains/linux_elf/apps/gimp && make)
 (cd toolchains/linux_elf/apps/inkscape && make)
 (cd toolchains/linux_elf/apps/gnumeric && make)
 (cd toolchains/linux_elf/apps/midory && make)
 (cd toolchains/linux_elf/apps/gnucash && make)
 
+########################################
+# run an app
+
+# In separate windows, run each line below. The first one should run in a
+# terminal on the X console; it will try to make a shared memory connection
+# to draw on the local X display. (It might also work remotely, but man,
+# no idea.)
+
+cd ~/embassies3/monitors/linux_dbg/monitor; ./build/xax_port_monitor
+cd ~/embassies3/toolchains/linux_elf/zftp_backend; make run_backend_server
+cd ~/embassies3/monitors/linux_dbg/pal; build/xax_port_pal ~/embassies3/toolchains/linux_elf/zftp_zoog/build/zftp_zoog.signed
+cd ~/embassies3/monitors/linux_dbg/pal; build/xax_port_pal ~/embassies3/toolchains/linux_elf/elf_loader/build/elf_loader.wordprocessor_office_org.signed
+
+
+
 TODO: sha-openssl* need to be modified to be extracted from some
 	downloaded distro.
 TODO: reenable zarfile creation in zftp_create_zarfile (or move to a neighboring directory
 	to get deps right).
+
