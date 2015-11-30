@@ -54,17 +54,29 @@ sudo apt-get install gimp inkscape gnumeric midori gnucash
 ########################################
 # run an app
 
-# In separate windows, run each line below. The first one should run in a
-# terminal on the X console; it will try to make a shared memory connection
-# to draw on the local X display. (It might also work remotely, but man,
-# no idea.)
+# In separate windows, run each line below.
+# The place you run the first line (xax_port_monitor) is the place
+# that any picoprocess' graphics will be emitted.
 
 cd ~/embassies3/monitors/linux_dbg/monitor; ./build/xax_port_monitor
 cd ~/embassies3/toolchains/linux_elf/zftp_backend; make run_backend_server
 cd ~/embassies3/monitors/linux_dbg/pal; build/xax_port_pal ~/embassies3/toolchains/linux_elf/zftp_zoog/build/zftp_zoog.signed
 cd ~/embassies3/monitors/linux_dbg/pal; build/xax_port_pal ~/embassies3/toolchains/linux_elf/elf_loader/build/elf_loader.wordprocessor_office_org.signed
 
-
+# NOTE: If, when trying the above, the monitor task fails with:
+xax_port_monitor: ../../../monitors/linux_common/xblit/XblitCanvas.cpp:198: void XblitCanvas::define_zoog_canvas(ZCanvas*): Assertion `bytes_per_pixel == zoog_bytes_per_pixel(zoog_pixel_format_truecolor24)' failed.
+# ...then you've bumped into the fact that the monitor is really dumb, and
+# only knows how to paint a single kind of X display. You need a display
+# for which "depth 24" has "bits_per_pixel 32":
+$ xdpyinfo | grep 'depth 24'
+    depth 24, bits_per_pixel 32, scanline_pad 32
+# That's pretty common on native displays, but apparently the virtual display
+# from virt-manager has
+    depth 24, bits_per_pixel 24, scanline_pad 32
+# instead. You may either improve the X display code in the monitor
+# (it's shared between the linux_dbg and linux_kvm monitors), or point
+# your monitor's DISPLAY variable at your host's native X display, such
+# as by ssh'ing into the VM with -Y.
 
 TODO: sha-openssl* need to be modified to be extracted from some
 	downloaded distro.
