@@ -1,0 +1,8 @@
+#!/bin/bash
+export ZOOG_ROOT=$(dirname $(readlink -f $0))/../../../
+gnome-terminal \
+	--tab-with-profile=foo -e ${ZOOG_ROOT}/toolchains/linux_elf/scripts/demo-dbg-monitor \
+	--tab-with-profile=foo -e ${ZOOG_ROOT}/toolchains/linux_elf/scripts/demo-zftp-backend \
+	--tab-with-profile=foo -e ${ZOOG_ROOT}/toolchains/linux_elf/scripts/demo-zftp-zoog \
+	--tab-with-profile=foo -e ${ZOOG_ROOT}/toolchains/linux_elf/scripts/demo-abiword-picoprocess \
+

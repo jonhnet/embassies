@@ -1,0 +1,10 @@
+#!/bin/bash
+cd ${ZOOG_ROOT}/monitors/linux_dbg/pal
+while [ true ]; do
+	build/xax_port_pal ${ZOOG_ROOT}/toolchains/linux_elf/zftp_zoog/build/zftp_zoog.signed
+	if [ $? == 0 ]; then
+		exit 0;
+	fi
+	echo Zzzz... waiting for monitor
+	sleep 1
+done

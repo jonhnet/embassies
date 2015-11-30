@@ -53,19 +53,22 @@ sudo apt-get install gimp inkscape gnumeric midori gnucash
 
 ########################################
 # run an app
+#
+# Invoke this script, which will fire up a gnome-terminal with
+# tabs for the zftp backend server, the Embassies monitor,
+# a picoprocess with a zftp cache in it, and
+# a picoprocess with Abiword running in it.
+# It should pop up a window with abiword running.
 
-# In separate windows, run each line below.
-# The place you run the first line (xax_port_monitor) is the place
-# that any picoprocess' graphics will be emitted.
+toolchains/linux_elf/scripts/demo-abiword
 
-cd ~/embassies3/monitors/linux_dbg/monitor; ./build/xax_port_monitor
-cd ~/embassies3/toolchains/linux_elf/zftp_backend; make run_backend_server
-cd ~/embassies3/monitors/linux_dbg/pal; build/xax_port_pal ~/embassies3/toolchains/linux_elf/zftp_zoog/build/zftp_zoog.signed
-cd ~/embassies3/monitors/linux_dbg/pal; build/xax_port_pal ~/embassies3/toolchains/linux_elf/elf_loader/build/elf_loader.wordprocessor_office_org.signed
-
-# NOTE: If, when trying the above, the monitor task fails with:
+# NOTE: If, when trying the above, the monitor task crashes with:
 xax_port_monitor: ../../../monitors/linux_common/xblit/XblitCanvas.cpp:198: void XblitCanvas::define_zoog_canvas(ZCanvas*): Assertion `bytes_per_pixel == zoog_bytes_per_pixel(zoog_pixel_format_truecolor24)' failed.
-# ...then you've bumped into the fact that the monitor is really dumb, and
+# ...then try running the command above from an 'ssh -Y' shell, so that
+# the DISPLAY variable points back at your host's X server.
+#
+# Explanation follows:
+# The problem is that the Embassies monitor is really dumb, and
 # only knows how to paint a single kind of X display. You need a display
 # for which "depth 24" has "bits_per_pixel 32":
 $ xdpyinfo | grep 'depth 24'

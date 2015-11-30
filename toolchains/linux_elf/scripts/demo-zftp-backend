@@ -1,0 +1,10 @@
+#!/bin/bash
+cd ${ZOOG_ROOT}/toolchains/linux_elf/zftp_backend
+while [ true ]; do
+	make run_backend_server
+	if [ $? == 0 ]; then
+		exit 0;
+	fi
+	echo Zzzz... waiting for monitor
+	sleep 1
+done
