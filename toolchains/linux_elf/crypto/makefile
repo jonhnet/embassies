@@ -117,6 +117,8 @@ $(BUILD)/vmac_speed_test: $(VMAC_SPEED_TEST_OBJS)
 $(BUILD)/dev_principal.local.keys: $(BUILD)/crypto_util
 	$(BUILD)/crypto_util --genkeys $@ --name $(DEVELOPER_PRINCIPAL)
 
+keys/root.keys:
+	./regenerate-keys-certs.sh
 
 $(BUILD)/dev_principal.local.cert: $(BUILD)/dev_principal.local.keys keys/root.keys
 	$(BUILD)/crypto_util \
