@@ -1,4 +1,24 @@
 //////////////////////////////////////////////////////////////////////////////
+// Quick start
+
+# Use virt-manager to create a VM configured for Linux/Debian Squeeze.
+# Install from Debian Squeeze:
+  http://cdimage.debian.org/cdimage/archive/6.0.10/i386/iso-cd/debian-6.0.10-i386-netinst.iso
+
+# Inside the VM:
+# Put user account in sudoers.
+sudo apt-get install vim-gnome git curl make dpkg-dev xorg-dev libpcap-dev libpng12-dev libgtk2.0-dev abiword
+git clone https://git01.codeplex.com/embassies
+cd embassies
+sudo true
+make	 # this takes hours, due mostly to building eglibc
+make -C toolchains/linux_elf/apps/xvnc
+make -C toolchains/linux_elf/apps/abiword
+toolchains/linux_elf/scripts/demo-abiword
+
+
+
+//////////////////////////////////////////////////////////////////////////////
 // VM setup
 
 Use virt-manager to create a VM configured for Linux/Debian Squeeze.
@@ -18,7 +38,7 @@ Put user account in sudoers.
 sudo apt-get install vim-gnome git curl make dpkg-dev xorg-dev libpcap-dev libpng12-dev libgtk2.0-dev
 
 git clone https://git01.codeplex.com/embassies
-cd embassies-fixbuild
+cd embassies
 
 # cache sudo credentials.
 sudo true
