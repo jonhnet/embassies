@@ -17,7 +17,7 @@ Put user account in sudoers.
 # Install requisite libraries and tools
 sudo apt-get install vim-gnome git curl make dpkg-dev xorg-dev libpcap-dev libpng12-dev libgtk2.0-dev
 
-git clone https://git01.codeplex.com/forks/howell/fixbuild embassies-fixbuild
+git clone https://git01.codeplex.com/embassies
 cd embassies-fixbuild
 
 # cache sudo credentials.
