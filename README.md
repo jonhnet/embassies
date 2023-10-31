@@ -1,4 +1,4 @@
-# What is it?
+# Embassies: Rich Web Applications with Strong Isolation
 
 Embassies was a research project that "radically refactored the web":
 applications had much greater isolation, relying on only a minimal isolation
@@ -10,7 +10,7 @@ apps, employing nearly any legacy library.
 ## Deeper reading
 
 [Embassies: Radically Refactoring the Web](https://www.usenix.org/conference/nsdi13/technical-sessions/presentation/howell)
-is the award-winning paper and its associated talk.
+is the best-paper award-winning paper and its associated talk.
 
 [How to Run POSIX Apps in a Minimal Picoprocess](https://www.usenix.org/conference/atc13/technical-sessions/presentation/howell)
 describes the tricks and techniques we used to persuade legacy application and
